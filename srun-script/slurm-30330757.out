@@ -1,0 +1,66 @@
+DEBUG 04-11 23:21:21 [__init__.py:28] No plugins for group vllm.platform_plugins found.
+DEBUG 04-11 23:21:21 [__init__.py:34] Checking if TPU platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:44] TPU platform is not available because: No module named 'libtpu'
+DEBUG 04-11 23:21:21 [__init__.py:52] Checking if CUDA platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:72] Confirmed CUDA platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:100] Checking if ROCm platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:114] ROCm platform is not available because: No module named 'amdsmi'
+DEBUG 04-11 23:21:21 [__init__.py:122] Checking if HPU platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:129] HPU platform is not available because habana_frameworks is not found.
+DEBUG 04-11 23:21:21 [__init__.py:140] Checking if XPU platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:150] XPU platform is not available because: No module named 'intel_extension_for_pytorch'
+DEBUG 04-11 23:21:21 [__init__.py:158] Checking if CPU platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:180] Checking if Neuron platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:187] Neuron platform is not available because: No module named 'transformers_neuronx'
+DEBUG 04-11 23:21:21 [__init__.py:52] Checking if CUDA platform is available.
+DEBUG 04-11 23:21:21 [__init__.py:72] Confirmed CUDA platform is available.
+INFO 04-11 23:21:21 [__init__.py:239] Automatically detected platform cuda.
+DEBUG 04-11 23:21:25 [__init__.py:28] No plugins for group vllm.general_plugins found.
+INFO 04-11 23:21:33 [config.py:600] This model supports multiple tasks: {'score', 'reward', 'generate', 'embed', 'classify'}. Defaulting to 'generate'.
+WARNING 04-11 23:21:33 [arg_utils.py:1708] Compute Capability < 8.0 is not supported by the V1 Engine. Falling back to V0. 
+INFO 04-11 23:21:33 [config.py:351] Overriding HF config with <function SpeculativeConfig.hf_config_override at 0x148ac74229e0>
+INFO 04-11 23:21:33 [llm_engine.py:242] Initializing a V0 LLM engine (v0.8.3) with config: model='facebook/opt-6.7b', speculative_config=SpeculativeConfig(method='draft_model', model='facebook/opt-125m', num_spec_tokens=5), tokenizer='facebook/opt-6.7b', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, override_neuron_config=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=2048, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto,  device_config=cuda, decoding_config=DecodingConfig(guided_decoding_backend='xgrammar', reasoning_backend=None), observability_config=ObservabilityConfig(show_hidden_metrics=False, otlp_traces_endpoint=None, collect_model_forward_time=False, collect_model_execute_time=False), seed=None, served_model_name=facebook/opt-6.7b, num_scheduler_steps=1, multi_step_stream_outputs=True, enable_prefix_caching=None, chunked_prefill_enabled=False, use_async_output_proc=False, disable_mm_preprocessor_cache=False, mm_processor_kwargs=None, pooler_config=None, compilation_config={"splitting_ops":[],"compile_sizes":[],"cudagraph_capture_sizes":[256,248,240,232,224,216,208,200,192,184,176,168,160,152,144,136,128,120,112,104,96,88,80,72,64,56,48,40,32,24,16,8,4,2,1],"max_capture_size":256}, use_cached_outputs=False, 
+INFO 04-11 23:21:35 [cuda.py:240] Cannot use FlashAttention-2 backend for Volta and Turing GPUs.
+INFO 04-11 23:21:35 [cuda.py:289] Using XFormers backend.
+INFO 04-11 23:21:37 [cuda.py:240] Cannot use FlashAttention-2 backend for Volta and Turing GPUs.
+INFO 04-11 23:21:37 [cuda.py:289] Using XFormers backend.
+INFO 04-11 23:21:37 [spec_decode_worker.py:209] Configuring SpecDecodeWorker with proposer=<class 'vllm.spec_decode.multi_step_worker.MultiStepWorker'>
+INFO 04-11 23:21:37 [rejection_sampler.py:60] Use pytorch for rejection sampling.
+INFO 04-11 23:21:37 [spec_decode_worker.py:221] [Speculative Decoding] Configuring SpecDecodeWorker with sampler=<class 'vllm.model_executor.layers.rejection_sampler.RejectionSampler'>
+INFO 04-11 23:21:37 [spec_decode_worker.py:229] [Speculative Decoding] Disabling MQA scorer as the MQA is only available with flash attn backend.
+INFO 04-11 23:21:37 [spec_decode_worker.py:244] [Speculative Decoding] Disabling MQA scorer as the target model is not running in eager mode.
+DEBUG 04-11 23:21:37 [config.py:3773] enabled custom ops: Counter()
+DEBUG 04-11 23:21:37 [config.py:3775] disabled custom ops: Counter()
+DEBUG 04-11 23:21:37 [parallel_state.py:820] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://10.8.11.1:56043 backend=nccl
+INFO 04-11 23:21:37 [parallel_state.py:957] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, TP rank 0
+DEBUG 04-11 23:21:37 [parallel_state.py:820] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://10.8.11.1:56043 backend=nccl
+INFO 04-11 23:21:37 [model_runner.py:1110] Starting to load model facebook/opt-6.7b...
+DEBUG 04-11 23:21:37 [decorators.py:109] Inferred dynamic dimensions for forward method of <class 'vllm.model_executor.models.opt.OPTModel'>: ['input_ids', 'positions', 'intermediate_tensors', 'inputs_embeds']
+DEBUG 04-11 23:21:38 [config.py:3773] enabled custom ops: Counter()
+DEBUG 04-11 23:21:38 [config.py:3775] disabled custom ops: Counter()
+INFO 04-11 23:21:38 [weight_utils.py:265] Using model weights format ['*.bin']
+INFO 04-11 23:22:17 [weight_utils.py:281] Time spent downloading weights for facebook/opt-6.7b: 39.524983 seconds
+INFO 04-11 23:22:31 [loader.py:447] Loading weights took 13.94 seconds
+INFO 04-11 23:22:31 [model_runner.py:1146] Model loading took 12.4037 GiB and 53.671113 seconds
+INFO 04-11 23:22:31 [model_runner.py:1110] Starting to load model facebook/opt-125m...
+DEBUG 04-11 23:22:31 [config.py:3773] enabled custom ops: Counter()
+DEBUG 04-11 23:22:31 [config.py:3775] disabled custom ops: Counter()
+INFO 04-11 23:22:31 [weight_utils.py:265] Using model weights format ['*.bin']
+INFO 04-11 23:22:33 [weight_utils.py:281] Time spent downloading weights for facebook/opt-125m: 1.446693 seconds
+INFO 04-11 23:22:33 [loader.py:447] Loading weights took 0.22 seconds
+INFO 04-11 23:22:33 [model_runner.py:1146] Model loading took 0.2397 GiB and 1.743981 seconds
+INFO 04-11 23:22:33 [spec_decode_worker.py:378] [Speculative Decoding] Use batch expansion for scoring proposals.
+DEBUG 04-11 23:22:33 [config.py:3773] enabled custom ops: Counter()
+DEBUG 04-11 23:22:33 [config.py:3775] disabled custom ops: Counter()
+INFO 04-11 23:22:34 [worker.py:267] Memory profiling takes 1.00 seconds
+INFO 04-11 23:22:34 [worker.py:267] the current vLLM instance can use total_gpu_memory (31.73GiB) x gpu_memory_utilization (0.90) = 28.56GiB
+INFO 04-11 23:22:34 [worker.py:267] model weights take 12.40GiB; non_torch_memory takes 0.09GiB; PyTorch activation peak memory takes 0.48GiB; the rest of the memory reserved for KV Cache is 15.59GiB.
+INFO 04-11 23:22:35 [executor_base.py:112] # cuda blocks: 1863, # CPU blocks: 512
+INFO 04-11 23:22:35 [executor_base.py:117] Maximum concurrency for 2048 tokens per request: 14.55x
+INFO 04-11 23:22:36 [model_runner.py:1456] Capturing cudagraphs for decoding. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI. If out-of-memory error occurs during cudagraph capture, consider decreasing `gpu_memory_utilization` or switching to eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 04-11 23:22:53 [model_runner.py:1598] Graph capturing finished in 16 secs, took 0.23 GiB
+INFO 04-11 23:22:53 [model_runner.py:1456] Capturing cudagraphs for decoding. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI. If out-of-memory error occurs during cudagraph capture, consider decreasing `gpu_memory_utilization` or switching to eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 04-11 23:23:06 [model_runner.py:1598] Graph capturing finished in 13 secs, took 0.11 GiB
+INFO 04-11 23:23:06 [llm_engine.py:448] init engine (profile, create kv cache, warmup model) took 32.84 seconds
+DEBUG 04-11 23:23:12 [llm_engine.py:1515] Stopping remote worker execution loop.
+Prompt: 'The future of AI is', Generated text: ' in art and design\nArtificial intelligence (AI) has been one of the'

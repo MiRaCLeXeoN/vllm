@@ -1,0 +1,41 @@
+DEBUG 04-10 22:38:54 [__init__.py:28] No plugins for group vllm.platform_plugins found.
+DEBUG 04-10 22:38:54 [__init__.py:34] Checking if TPU platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:44] TPU platform is not available because: No module named 'libtpu'
+DEBUG 04-10 22:38:54 [__init__.py:52] Checking if CUDA platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:76] Exception happens when checking CUDA platform: NVML Shared Library Not Found
+DEBUG 04-10 22:38:54 [__init__.py:93] CUDA platform is not available because: NVML Shared Library Not Found
+DEBUG 04-10 22:38:54 [__init__.py:100] Checking if ROCm platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:114] ROCm platform is not available because: No module named 'amdsmi'
+DEBUG 04-10 22:38:54 [__init__.py:122] Checking if HPU platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:129] HPU platform is not available because habana_frameworks is not found.
+DEBUG 04-10 22:38:54 [__init__.py:140] Checking if XPU platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:150] XPU platform is not available because: No module named 'intel_extension_for_pytorch'
+DEBUG 04-10 22:38:54 [__init__.py:158] Checking if CPU platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:180] Checking if Neuron platform is available.
+DEBUG 04-10 22:38:54 [__init__.py:187] Neuron platform is not available because: No module named 'transformers_neuronx'
+INFO 04-10 22:38:54 [__init__.py:243] No platform detected, vLLM is running on UnspecifiedPlatform
+DEBUG 04-10 22:38:57 [__init__.py:28] No plugins for group vllm.general_plugins found.
+INFO 04-10 22:39:05 [config.py:600] This model supports multiple tasks: {'reward', 'embed', 'generate', 'classify', 'score'}. Defaulting to 'generate'.
+WARNING 04-10 22:39:05 [arg_utils.py:1708] Speculative Decoding is not supported by the V1 Engine. Falling back to V0. 
+INFO 04-10 22:39:05 [config.py:1634] Disabled the custom all-reduce kernel because it is not supported on current platform.
+INFO 04-10 22:39:05 [config.py:351] Overriding HF config with <function SpeculativeConfig.hf_config_override at 0x15405dc40f70>
+INFO 04-10 22:39:05 [config.py:1634] Disabled the custom all-reduce kernel because it is not supported on current platform.
+Traceback (most recent call last):
+  File "/ocean/projects/cis240126p/ztong/ztong/vllm_speculative_decoding/test.py", line 8, in <module>
+    llm = LLM(
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/utils.py", line 1096, in inner
+    return fn(*args, **kwargs)
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/entrypoints/llm.py", line 243, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/engine/llm_engine.py", line 514, in from_engine_args
+    vllm_config = engine_args.create_engine_config(usage_context)
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/engine/arg_utils.py", line 1313, in create_engine_config
+    config = VllmConfig(
+  File "<string>", line 19, in __init__
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/config.py", line 3557, in __post_init__
+    self.model_config.verify_async_output_proc(self.parallel_config,
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/config.py", line 751, in verify_async_output_proc
+    if not current_platform.is_async_output_supported(self.enforce_eager):
+  File "/jet/home/ztong/.conda/envs/vllm_env/lib/python3.10/site-packages/vllm/platforms/interface.py", line 204, in is_async_output_supported
+    raise NotImplementedError
+NotImplementedError

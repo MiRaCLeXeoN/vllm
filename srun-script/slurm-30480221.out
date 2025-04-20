@@ -1,0 +1,39 @@
+INFO 04-16 16:11:40 [__init__.py:239] Automatically detected platform cuda.
+INFO 04-16 16:11:52 [config.py:600] This model supports multiple tasks: {'reward', 'classify', 'generate', 'embed', 'score'}. Defaulting to 'generate'.
+WARNING 04-16 16:11:52 [arg_utils.py:1708] Compute Capability < 8.0 is not supported by the V1 Engine. Falling back to V0. 
+INFO 04-16 16:11:52 [config.py:1600] Defaulting to use mp for distributed inference
+INFO 04-16 16:11:52 [llm_engine.py:242] Initializing a V0 LLM engine (v0.8.3) with config: model='facebook/opt-30b', speculative_config=None, tokenizer='facebook/opt-30b', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, override_neuron_config=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=2048, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=4, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto,  device_config=cuda, decoding_config=DecodingConfig(guided_decoding_backend='xgrammar', reasoning_backend=None), observability_config=ObservabilityConfig(show_hidden_metrics=False, otlp_traces_endpoint=None, collect_model_forward_time=False, collect_model_execute_time=False), seed=None, served_model_name=facebook/opt-30b, num_scheduler_steps=1, multi_step_stream_outputs=True, enable_prefix_caching=None, chunked_prefill_enabled=False, use_async_output_proc=False, disable_mm_preprocessor_cache=False, mm_processor_kwargs=None, pooler_config=None, compilation_config={"splitting_ops":[],"compile_sizes":[],"cudagraph_capture_sizes":[256,248,240,232,224,216,208,200,192,184,176,168,160,152,144,136,128,120,112,104,96,88,80,72,64,56,48,40,32,24,16,8,4,2,1],"max_capture_size":256}, use_cached_outputs=False, 
+WARNING 04-16 16:11:53 [multiproc_worker_utils.py:306] Reducing Torch parallelism from 40 threads to 1 to avoid unnecessary CPU contention. Set OMP_NUM_THREADS in the external environment to tune this value as needed.
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:53 [multiproc_worker_utils.py:225] Worker ready; awaiting tasks
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:53 [multiproc_worker_utils.py:225] Worker ready; awaiting tasks
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:53 [multiproc_worker_utils.py:225] Worker ready; awaiting tasks
+INFO 04-16 16:11:54 [cuda.py:240] Cannot use FlashAttention-2 backend for Volta and Turing GPUs.
+INFO 04-16 16:11:54 [cuda.py:289] Using XFormers backend.
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:54 [cuda.py:240] Cannot use FlashAttention-2 backend for Volta and Turing GPUs.
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:54 [cuda.py:289] Using XFormers backend.
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:54 [cuda.py:240] Cannot use FlashAttention-2 backend for Volta and Turing GPUs.
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:54 [cuda.py:289] Using XFormers backend.
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:54 [cuda.py:240] Cannot use FlashAttention-2 backend for Volta and Turing GPUs.
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:54 [cuda.py:289] Using XFormers backend.
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:57 [utils.py:990] Found nccl from library libnccl.so.2
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:57 [utils.py:990] Found nccl from library libnccl.so.2
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:57 [utils.py:990] Found nccl from library libnccl.so.2
+INFO 04-16 16:11:57 [utils.py:990] Found nccl from library libnccl.so.2
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:57 [pynccl.py:69] vLLM is using nccl==2.21.5
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:57 [pynccl.py:69] vLLM is using nccl==2.21.5
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:57 [pynccl.py:69] vLLM is using nccl==2.21.5
+INFO 04-16 16:11:57 [pynccl.py:69] vLLM is using nccl==2.21.5
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:57 [parallel_state.py:957] rank 3 in world size 4 is assigned as DP rank 0, PP rank 3, TP rank 0
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:57 [parallel_state.py:957] rank 2 in world size 4 is assigned as DP rank 0, PP rank 2, TP rank 0
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:57 [parallel_state.py:957] rank 1 in world size 4 is assigned as DP rank 0, PP rank 1, TP rank 0
+INFO 04-16 16:11:57 [parallel_state.py:957] rank 0 in world size 4 is assigned as DP rank 0, PP rank 0, TP rank 0
+INFO 04-16 16:11:57 [model_runner.py:1110] Starting to load model facebook/opt-30b...
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:57 [model_runner.py:1110] Starting to load model facebook/opt-30b...
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:57 [model_runner.py:1110] Starting to load model facebook/opt-30b...
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:57 [model_runner.py:1110] Starting to load model facebook/opt-30b...
+INFO 04-16 16:11:57 [weight_utils.py:265] Using model weights format ['*.bin']
+[1;36m(VllmWorkerProcess pid=102961)[0;0m INFO 04-16 16:11:57 [weight_utils.py:265] Using model weights format ['*.bin']
+[1;36m(VllmWorkerProcess pid=102960)[0;0m INFO 04-16 16:11:57 [weight_utils.py:265] Using model weights format ['*.bin']
+[1;36m(VllmWorkerProcess pid=102959)[0;0m INFO 04-16 16:11:57 [weight_utils.py:265] Using model weights format ['*.bin']
+LLM init error: [Errno 122] Disk quota exceeded
+INFO 04-16 16:11:58 [multiproc_worker_utils.py:137] Terminating local vLLM worker processes
