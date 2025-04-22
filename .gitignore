@@ -206,3 +206,7 @@ shellcheck*/
 
 # Ingore moe/marlin_moe gen code
 csrc/moe/marlin_moe_wna16/kernel_*
+
+# Ignore slurm output
+slurm-*.out
+slurm-*.err
