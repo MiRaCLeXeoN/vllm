@@ -1468,11 +1468,14 @@ class EngineArgs:
                 speculative_model = self.speculative_config.get("model")
                 if speculative_model in ("ngram", "[ngram]"):
                     is_ngram_enabled = True
-            if not (is_ngram_enabled or is_eagle_enabled):
-                # Other speculative decoding methods are not supported yet.
-                _raise_or_fallback(feature_name="Speculative Decoding",
-                                   recommend_to_remove=False)
-                return False
+            # NOTE(zt): add ngram enabled
+            print("is_ngram_enabled: ", is_ngram_enabled)
+            print("is_eagle_enabled: ", is_eagle_enabled)
+            # if not (is_eagle_enabled or is_ngram_enabled):
+            #     # Other speculative decoding methods are not supported yet.
+            #     _raise_or_fallback(feature_name="Speculative Decoding",
+            #                        recommend_to_remove=False)
+            #     return False
 
         # No FlashInfer or XFormers so far.
         V1_BACKENDS = [
@@ -1501,11 +1504,12 @@ class EngineArgs:
 
         # PP is supported on V1 with Ray distributed executor,
         # but off for MP distributed executor for now.
-        if (self.pipeline_parallel_size > 1
-                and self.distributed_executor_backend != "ray"):
-            name = "Pipeline Parallelism without Ray distributed executor"
-            _raise_or_fallback(feature_name=name, recommend_to_remove=False)
-            return False
+        # NOTE (zt): comment out for mp
+        # if (self.pipeline_parallel_size > 1
+                # and self.distributed_executor_backend != "ray"):
+            # name = "Pipeline Parallelism without Ray distributed executor"
+            # _raise_or_fallback(feature_name=name, recommend_to_remove=False)
+            # return False
 
         # ngram is supported on V1, but off by default for now.
         if is_ngram_enabled and _warn_or_fallback("ngram"):

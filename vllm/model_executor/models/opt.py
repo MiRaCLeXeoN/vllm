@@ -281,7 +281,8 @@ class OPTDecoder(nn.Module):
 
 
 @support_torch_compile
-class OPTModel(nn.Module):
+# NOTE(zt): add SupportsPP to solve the is_pp_supported_model problem
+class OPTModel(nn.Module, SupportsPP):
 
     def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
         super().__init__()

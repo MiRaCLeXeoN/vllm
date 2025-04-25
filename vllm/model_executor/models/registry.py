@@ -508,6 +508,8 @@ class _ModelRegistry:
         architectures: Union[str, List[str]],
     ) -> bool:
         model_cls, _ = self.inspect_model_cls(architectures)
+        # print the model_cls
+        print("Calling is_pp_supported_model, the model_cls is: ", model_cls)
         return model_cls.supports_pp
 
     def model_has_inner_state(

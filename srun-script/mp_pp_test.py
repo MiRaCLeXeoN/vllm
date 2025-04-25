@@ -10,12 +10,12 @@ llm = LLM(
     tensor_parallel_size=1,
     pipeline_parallel_size=2,
     device="cuda",
-    speculative_config={
-        "model": "facebook/opt-125m",
-        "method": "ngram",
-        "num_speculative_tokens": 5,
-    },
-    distributed_executor_backend="ray"  
+    # speculative_config={
+    #     "model": "facebook/opt-125m",
+    #     "method": "eagle",
+    #     "num_speculative_tokens": 5,
+    # },
+    distributed_executor_backend="mp"
 )
 outputs = llm.generate(prompts, sampling_params)
 

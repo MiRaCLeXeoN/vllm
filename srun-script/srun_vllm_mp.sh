@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=srun_vllm_sd
+#SBATCH --job-name=srun_vllm_mp
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=01:00:00
@@ -16,4 +16,4 @@ export CUDA_VISIBLE_DEVICES=0,1
 
 export VLLM_USE_V1=1
 # Run the Python script
-srun python sd_test.py
+srun python mp_pp_test.py

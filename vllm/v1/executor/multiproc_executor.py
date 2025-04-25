@@ -32,6 +32,10 @@ from vllm.utils import (get_distributed_init_method, get_mp_context,
 from vllm.v1.executor.abstract import Executor, FailureCallback
 from vllm.v1.outputs import ModelRunnerOutput
 from vllm.worker.worker_base import WorkerWrapperBase
+# NOTE(zt): Import from vllm.utils. Not known if it is available in V1
+from vllm.utils import cuda_device_count_stateless
+from typing import List
+import asyncio
 
 logger = init_logger(__name__)
 
@@ -234,6 +238,66 @@ class MultiprocExecutor(Executor):
     def check_health(self) -> None:
         self.collective_rpc("check_health", timeout=10)
         return
+
+class PipelineParallelExecutor(MultiprocExecutor):
+    """
+    Pipeline parallel executor, inherit from MultiprocExecutor
+    """
+    def _init_executor(self):
+        super()._init_executor()
+
+        tensor_parallel_size = self.parallel_config.tensor_parallel_size
+        pipeline_parallel_size = self.parallel_config.pipeline_parallel_size
+        assert self.world_size == tensor_parallel_size * pipeline_parallel_size, (
+            f"world_size ({self.world_size}) != tensor_parallel_size ({tensor_parallel_size}) * "
+            f"pipeline_parallel_size ({pipeline_parallel_size})"
+        )
+
+        # NOTE(zt): Imitate the logic of V0
+        # build the list of one "driver" per pipeline stage
+        # stage 0 is rank 0; stages 1…P–1 are those ranks divisible by tensor_parallel_size
+        self.tp_driver_workers = [
+            w for w in self.workers
+            if w.rank % tensor_parallel_size == 0
+        ]
+
+        # NOTE(zt): Different from V0 using asyncio.Lock, here we use threading.Lock
+        # asyncio.Lock (used in v0) only makes sense inside a single asyncio event loop. 
+        # It prevents two await-points in that same loop from entering the critical section 
+        # concurrently, but it does not block OS threads. In v0’s _driver_execute_model_async, 
+        # every pipeline‐stage invocation is an asyncio.create_task running on the same event 
+        # loop, so an asyncio.Lock neatly gates those coroutines ​
+        
+        # threading.Lock, by contrast, is a real OS‐level mutex. It will block any other 
+        # Python thread that tries to .acquire() it, regardless of whether those threads use 
+        # asyncio or plain blocking calls. In v1’s MultiprocExecutor, you’re no longer in a 
+        # single asyncio loop—you’re issuing blocking collective_rpc() calls (from potentially 
+        # different threads), spinning up worker‐monitor threads, and using the normal 
+        # execute_model(...) API synchronously. An asyncio.Lock couldn’t protect you there 
+        # (it would need an event loop and only coordinate coroutines), but a threading.Lock 
+        # will correctly serialize access across all threads.
+        import threading
+        self.pp_locks: List[threading.Lock] = None
+        
+    def execute_model(self, sched_out):
+        # if pipeline_parallel_size == 1, just use the normal logic
+        if self.parallel_config.pipeline_parallel_size == 1:
+            return super().execute_model(sched_out)
+        
+        # otherwise, loop through stages as sketched earlier...
+        data = sched_out
+        # stage-0
+        with self.pp_locks[0]:
+            (data,) = self.collective_rpc("execute_model",
+                                          args=(data, 0),
+                                          rank0_reply_only=True)
+        # stages 1…P–1
+        for stage_idx, _ in enumerate(self.tp_driver_workers, start=1):
+            with self.pp_locks[stage_idx]:
+                (data,) = self.collective_rpc("execute_model",
+                                              args=(data, stage_idx),
+                                              rank0_reply_only=True)
+        return data
 
 
 @dataclass
