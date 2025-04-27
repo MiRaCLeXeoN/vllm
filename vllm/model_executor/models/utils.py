@@ -605,6 +605,9 @@ def make_layers(
     start_layer, end_layer = get_pp_indices(num_hidden_layers,
                                             get_pp_group().rank_in_group,
                                             get_pp_group().world_size)
+    # NOTE(zt): Check make_layers is called in pp mode:
+    print(f"[ZT-DEBUG]make_layers is called in pp mode: {get_pp_group().rank_in_group} / {get_pp_group().world_size}",
+            f"start_layer: {start_layer}, end_layer: {end_layer}")
     modules = torch.nn.ModuleList(
         [PPMissingLayer() for _ in range(start_layer)] + [
             maybe_offload_to_cpu(layer_fn(prefix=f"{prefix}.{idx}"))

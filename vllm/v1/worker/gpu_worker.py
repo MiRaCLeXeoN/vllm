@@ -30,7 +30,7 @@ logger = init_logger(__name__)
 
 if TYPE_CHECKING:
     from vllm.v1.core.sched.output import SchedulerOutput
-
+    from vllm.sequence import IntermediateTensors
 
 class Worker(WorkerBase):
 
@@ -239,8 +239,9 @@ class Worker(WorkerBase):
     def execute_model(
         self,
         scheduler_output: "SchedulerOutput",
+        intermediate_tensors: Optional["IntermediateTensors"] = None,
     ) -> Optional[ModelRunnerOutput]:
-        output = self.model_runner.execute_model(scheduler_output)
+        output = self.model_runner.execute_model(scheduler_output, intermediate_tensors)
         return output if self.is_driver_worker else None
 
     def profile(self, is_start: bool = True):

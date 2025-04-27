@@ -15,7 +15,7 @@ llm = LLM(
     #     "method": "eagle",
     #     "num_speculative_tokens": 5,
     # },
-    distributed_executor_backend="mp"
+    distributed_executor_backend="mp"    # NOTE(zt): mp-pp will replace mp in the __post_init__ ParallelConfig
 )
 outputs = llm.generate(prompts, sampling_params)
 

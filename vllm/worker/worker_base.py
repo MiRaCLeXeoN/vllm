@@ -557,6 +557,8 @@ class WorkerWrapperBase:
         if isinstance(self.vllm_config.parallel_config.worker_cls, str):
             worker_class = resolve_obj_by_qualname(
                 self.vllm_config.parallel_config.worker_cls)
+            # NOTE(zt): For debug, we need to print the worker_class, so that I can know what execute_model() the model is calling
+            print(f"[ZT-DEBUG] The executor is using worker_class: {worker_class}")
         else:
             logger.warning(
                 "passing worker_cls as a class object is strongly deprecated,"

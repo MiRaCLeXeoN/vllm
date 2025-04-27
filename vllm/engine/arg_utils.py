@@ -1170,6 +1170,8 @@ class EngineArgs:
             # but we should not do this here.
             placement_group = ray.util.get_current_placement_group()
 
+        # NOTE(zt): print out the distributed_executor_backend, should be mp-pp
+        print(f"[ZT-DEBUG]distributed_executor_backend: {self.distributed_executor_backend}")
         parallel_config = ParallelConfig(
             pipeline_parallel_size=self.pipeline_parallel_size,
             tensor_parallel_size=self.tensor_parallel_size,

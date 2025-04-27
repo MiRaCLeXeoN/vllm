@@ -285,6 +285,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         new/resumed/paused/finished request in the batch.
         """
         # Remove finished requests from the cached states.
+        # NOTE(zt): when a intermediate stage worker of pp run, the scheduler_output is a intermediate_tensor
+        # it has no finished_req_ids
         for req_id in scheduler_output.finished_req_ids:
             self.requests.pop(req_id, None)
             self.encoder_cache.pop(req_id, None)
@@ -999,7 +1001,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[ModelRunnerOutput, torch.Tensor]:
         # Update KVConnector with the KVConnector metadata forward().
-        if has_kv_transfer_group():
+        print(f"[ZT-DEBUG][worker], pp_rank={get_pp_group().rank}, is_first_rank={get_pp_group().is_first_rank}, is_last_rank={get_pp_group().is_last_rank}")
+        print(f"[ZT-DEBUG][worker] execute_model called with scheduler_output type={type(scheduler_output)}, intermediate_tensors type={type(intermediate_tensors)}")
+        if has_kv_transfer_group(): 
             get_kv_transfer_group().bind_connector_metadata(
                 scheduler_output.kv_connector_metadata)
 
@@ -1007,7 +1011,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if not scheduler_output.total_num_scheduled_tokens:
             # Return empty ModelRunnerOutput if there's no work to do.
             return EMPTY_MODEL_RUNNER_OUTPUT
-
+        print(f"[ZT-DEBUG][worker] execute_model called with scheduler_output type={type(scheduler_output)}, intermediate_tensors type={type(intermediate_tensors)}")
         # Prepare the decoder inputs.
         attn_metadata, logits_indices, spec_decode_metadata = (
             self._prepare_inputs(scheduler_output))
@@ -1073,6 +1077,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         # Run the decoder.
         # Use persistent buffers for CUDA graphs.
+        print(f"[ZT-DEBUG][worker] About to call self.model with input_ids={input_ids.shape if input_ids is not None else None}, positions={positions.shape}, intermediate_tensors={type(intermediate_tensors)}, inputs_embeds={inputs_embeds.shape if inputs_embeds is not None else None}")
         with set_forward_context(attn_metadata, self.vllm_config):
             hidden_states = self.model(
                 input_ids=input_ids,
@@ -1080,8 +1085,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 intermediate_tensors=intermediate_tensors,
                 inputs_embeds=inputs_embeds,
             )
+        print(f"[ZT-DEBUG][worker pp_rank={get_pp_group().rank}] hidden_states type: {type(hidden_states)}")
+        print(f"[ZT-DEBUG][worker pp_rank={get_pp_group().rank}] is_last_rank: {get_pp_group().is_last_rank}")        
         if not get_pp_group().is_last_rank:
             # For mid-pipeline stages, return the hidden states.
+            print(f"[ZT-DEBUG][worker] Returning hidden_states from mid-pipeline stage, shape={getattr(hidden_states, 'shape', None)}")
             return hidden_states
 
         hidden_states = hidden_states[:num_scheduled_tokens]
@@ -1247,7 +1255,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # Clear KVConnector state after all KVs are generated.
         if has_kv_transfer_group():
             get_kv_transfer_group().clear_connector_metadata()
-
+        print(f"[ZT-DEBUG][worker] Returning ModelRunnerOutput, sampled_token_ids type={type(valid_sampled_token_ids)}")
         return ModelRunnerOutput(
             req_ids=self.input_batch.req_ids,
             req_id_to_index=self.input_batch.req_id_to_index,
