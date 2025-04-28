@@ -2571,6 +2571,7 @@ class SpeculativeConfig:
                              f"than zero ({self.num_speculative_tokens}).")
 
         if self.draft_model_config:
+            # NOTE(zt): mp-pp-sd change the verify_parallel_config NotImplementedError
             self.draft_model_config.verify_with_parallel_config(
                 self.draft_parallel_config)
             # Validate and set draft token acceptance related settings.

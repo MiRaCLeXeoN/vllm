@@ -402,8 +402,7 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
             self._ensure_worker_termination([w.proc for w in self.workers])
 
         for rpc_broadcast_mq in self.rpc_broadcast_mq_list:
-            rpc_broadcast_mq.close()
-            
+            rpc_broadcast_mq = None
 
 @dataclass
 class UnreadyWorkerProcHandle:

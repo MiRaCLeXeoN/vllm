@@ -17,3 +17,4 @@ export CUDA_VISIBLE_DEVICES=0,1
 export VLLM_USE_V1=1
 # Run the Python script
 srun python mp_pp_test.py
+# srun python mp_pp_sd_test.py
