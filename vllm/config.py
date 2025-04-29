@@ -904,6 +904,8 @@ class ModelConfig:
         pipeline_parallel_size = parallel_config.pipeline_parallel_size
         if pipeline_parallel_size > 1:
             if not self.registry.is_pp_supported_model(self.architectures):
+                print("[ZT-DEBUG] architectures: ", self.architectures) 
+                print("[ZT-DEBUG] model:", getattr(self, "model", None))
                 raise NotImplementedError(
                     "Pipeline parallelism is not supported for this model. "
                     "Supported models implement the `SupportsPP` interface.")

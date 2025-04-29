@@ -49,7 +49,7 @@ class Executor(ExecutorBase):
             # TODO: make v1 scheduling deterministic
             # to support external launcher
             executor_class = ExecutorWithExternalLauncher
-        # NOTE(zt): add mp-pp
+        # NOTE(zt): take mp-pp for PipelineParallelMultiprocExecutor
         elif distributed_executor_backend == "mp-pp":
             from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutor
             executor_class = PipelineParallelMultiprocExecutor

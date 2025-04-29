@@ -582,6 +582,24 @@ def create_kv_cache_group_specs(
             KVCacheGroupSpec(layer_names_one_group, layer_spec))
     return kv_cache_groups
 
+def create_kv_cache_group_specs_sd(
+        kv_cache_spec: dict[str, KVCacheSpec],
+        grouped_layer_names: list[list[str]]) -> list[KVCacheGroupSpec]:
+    """
+    NOTE(zt): The name of the last layer is different from the others.
+    """
+    kv_cache_groups = []
+    for layer_names_one_group in grouped_layer_names:
+        layer_spec = kv_cache_spec[layer_names_one_group[0]]
+        assert all(
+            kv_cache_spec[layer_name] == layer_spec
+            for layer_name in layer_names_one_group[1:-1]), (
+                "All layers in the same KV cache group must share the same "
+                "KVCacheSpec.")
+        kv_cache_groups.append(
+            KVCacheGroupSpec(layer_names_one_group, layer_spec))
+    return kv_cache_groups
+
 
 def is_kv_cache_type_uniform(kv_cache_spec: dict[str, KVCacheSpec]) -> bool:
     """
@@ -595,6 +613,10 @@ def is_kv_cache_type_uniform(kv_cache_spec: dict[str, KVCacheSpec]) -> bool:
     """
 
     layer_keys = set(layer.type_id for layer in kv_cache_spec.values())
+    # NOTE(zt): print the kv_cache_spec
+    print(f"[ZT-DEBUG] kv_cache_spec: {kv_cache_spec}")
+    for layer_name, spec in kv_cache_spec.items():
+        print(f"    [ZT-DEBUG] layer_name: {layer_name}, spec: {spec}, type_id: {spec.type_id}")
     return len(layer_keys) == 1
 
 
@@ -653,6 +675,50 @@ def _get_kv_cache_config_uniform_type(vllm_config: VllmConfig,
     )
     return kv_cache_config
 
+def _get_kv_cache_config_sd_uniform_type(vllm_config: VllmConfig,
+                                    kv_cache_spec: dict[str, KVCacheSpec],
+                                    available_memory: int) -> KVCacheConfig:
+    """
+    NOTE(zt): Generate the KV cache config for hybrid layer with uniform KV cache type.
+    """
+    page_sizes = {layer.page_size_bytes for layer in kv_cache_spec.values()}
+    assert len(page_sizes) == 2
+    page_size = max(page_sizes)
+
+    num_blocks = int(available_memory // page_size // len(kv_cache_spec))
+    num_blocks = max(num_blocks, 0)
+
+    if vllm_config.cache_config.num_gpu_blocks_override is not None:
+        num_gpu_blocks_override = \
+            vllm_config.cache_config.num_gpu_blocks_override
+        logger.info(
+            "Overriding num_gpu_blocks=%d with "
+            "num_gpu_blocks_override=%d", num_blocks, num_gpu_blocks_override)
+        num_blocks = num_gpu_blocks_override
+
+    num_tokens = num_blocks * vllm_config.cache_config.block_size
+    num_tokens_str = f"{num_tokens:,}"
+    logger.info("GPU KV cache size: %s tokens", num_tokens_str)
+    max_model_len_str = f"{vllm_config.model_config.max_model_len:,}"
+    max_concurrency = num_tokens / vllm_config.model_config.max_model_len
+    logger.info("Maximum concurrency for %s tokens per request: %.2fx",
+                max_model_len_str, max_concurrency)
+
+    per_layer_size = page_size * num_blocks
+    # All layers have the same KV cache spec, so we create one kv cache group
+    # for all layers.
+    grouped_layer_names = [list(kv_cache_spec.keys())]
+
+    kv_cache_config = KVCacheConfig(
+        num_blocks=num_blocks,
+        tensors={
+            layer_name: KVCacheTensor(size=per_layer_size)
+            for layer_name in kv_cache_spec
+        },
+        kv_cache_groups=create_kv_cache_group_specs_sd(kv_cache_spec,
+                                                    grouped_layer_names),
+    )
+    return kv_cache_config
 
 def unify_hybrid_kv_cache_specs(kv_cache_spec: dict[str, KVCacheSpec]):
     """
@@ -704,7 +770,16 @@ def get_kv_cache_config(vllm_config: VllmConfig,
         # each layer.
         return _get_kv_cache_config_uniform_type(vllm_config, kv_cache_spec,
                                                  available_memory)
-
+    # NOTE(zt): the last layer of sepculative decoding is different from the others (smaller)
+    # layer_name: model.decoder.layers.31.self_attn.attn, 
+    #       spec: FullAttentionSpec(block_size=16, num_kv_heads=32, head_size=128, dtype=torch.float16, use_mla=False), 
+    #       type_id: full_attention_16_262144
+    # layer_name: model.layers.16.self_attn.attn, 
+    #       spec: FullAttentionSpec(block_size=16, num_kv_heads=8, head_size=128, dtype=torch.float16, use_mla=False), 
+    #       type_id: full_attention_16_65536
+    elif vllm_config.speculative_config.method == "eagle":
+        print("[ZT-DEBUG] use sd uniform type kv cache config")
+        return _get_kv_cache_config_sd_uniform_type(vllm_config, kv_cache_spec, available_memory)
     raise NotImplementedError
 
 

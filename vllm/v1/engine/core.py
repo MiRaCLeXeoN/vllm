@@ -200,6 +200,8 @@ class EngineCore:
                 scheduler_stats=self.scheduler.make_stats(),
             )
         scheduler_output = self.scheduler.schedule()
+        # NOTE(zt): the scheduler_output probably doesn't have scheduled_spec_decode_tokens
+        print(f"[ZT-DEBUG] scheduler_output.scheduled_spec_decode_tokens are: {scheduler_output.scheduled_spec_decode_tokens}")
         output = self.model_executor.execute_model(scheduler_output)
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, output)  # type: ignore

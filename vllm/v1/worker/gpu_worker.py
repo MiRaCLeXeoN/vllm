@@ -198,6 +198,7 @@ class Worker(WorkerBase):
             from contextlib import nullcontext
             context = nullcontext()
         with context:
+            # BUG(zt): the sd kv_config is not supported yet.
             self.model_runner.initialize_kv_cache(kv_cache_config)
 
     def compile_or_warm_up_model(self) -> None:

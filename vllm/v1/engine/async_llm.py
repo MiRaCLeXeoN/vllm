@@ -105,7 +105,9 @@ class AsyncLLM(EngineClient):
             executor_class=executor_class,
             log_stats=self.log_stats,
         )
-
+        # NOTE(zt): print the engine_core
+        print("[ZT-DEBUG-AsyncLLM] Check the engine_core class: ", self.engine_core.__class__)
+        print("[ZT-DEBUG-AsyncLLM] The engine_core is: ", self.engine_core)
         self.output_handler: Optional[asyncio.Task] = None
         try:
             # Start output handler eagerly if we are in the asyncio eventloop.

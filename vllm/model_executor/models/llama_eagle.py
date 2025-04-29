@@ -16,6 +16,10 @@ from vllm.model_executor.models.llama import (LlamaDecoderLayer,
                                               LlamaForCausalLM)
 
 from .utils import AutoWeightsLoader, maybe_prefix
+from .interfaces import SupportsPP
+from typing import Iterable, Optional
+from .utils import (make_empty_intermediate_tensors_factory)
+from vllm.sequence import IntermediateTensors
 
 logger = init_logger(__name__)
 
@@ -64,6 +68,10 @@ class LlamaModel(nn.Module):
         self.fc = torch.nn.Linear(self.config.hidden_size * 2,
                                   self.config.hidden_size,
                                   bias=False)
+        
+        # NOTE(zt): add make_empty_intermediate_tensors here
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], self.config.hidden_size)
 
     def forward(
         self,
@@ -114,8 +122,10 @@ class LlamaModel(nn.Module):
         return loaded_params
 
 
-class EagleLlamaForCausalLM(LlamaForCausalLM):
-
+# NOTE(zt): Add SupportsPP here; attempt to fix config.py", line 909, in verify_with_parallel_config    
+# raise NotImplementedError  Pipeline parallelism is not supported for this model. Supported models implement the `SupportsPP` interface.
+class EagleLlamaForCausalLM(LlamaForCausalLM, SupportsPP):
+    
     def __init__(self, *, model_config: ModelConfig, start_layer_id: int = 0):
         nn.Module.__init__(self)
         self.config = model_config.hf_config
@@ -123,6 +133,7 @@ class EagleLlamaForCausalLM(LlamaForCausalLM):
                                 start_layer_id=start_layer_id,
                                 prefix="model")
 
+        self.make_empty_intermediate_tensors = self.model.make_empty_intermediate_tensors
         logit_scale = getattr(self.config, "logit_scale", 1.0)
         self.logits_processor = LogitsProcessor(self.config.vocab_size,
                                                 scale=logit_scale)
@@ -132,6 +143,8 @@ class EagleLlamaForCausalLM(LlamaForCausalLM):
         input_ids: torch.Tensor,
         positions: torch.Tensor,
         hidden_states: torch.Tensor,
+        # NOTE(zt): only last rank doesn't have intermediate_tensors
+        intermediate_tensors: Optional[IntermediateTensors] = None, 
     ) -> torch.Tensor:
         return self.model(input_ids, positions, hidden_states)
 

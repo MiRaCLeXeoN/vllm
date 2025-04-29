@@ -81,6 +81,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         set_cpu_offload_max_bytes(
             int(self.cache_config.cpu_offload_gb * 1024**3))
 
+        # DEBUG(zt): print the device
+        print("[ZT-DEBUG-GPUModelRunner] The device is: ", device)
+
         model_config = self.model_config
         cache_config = self.cache_config
         scheduler_config = self.scheduler_config
@@ -161,6 +164,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         # Set up speculative decoding.
         self.use_spec_decode = False
+        # NOTE(zt): print the ngram config
+        print(f"[ZT-DEBUG] Using speculative decoding with config: {self.speculative_config}")
         if self.speculative_config:
             self.use_spec_decode = True
             if get_pp_group().is_last_rank:
@@ -173,7 +178,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     raise ValueError("Unknown speculative decoding method: "
                                      f"{self.speculative_config.method}")
                 self.rejection_sampler = RejectionSampler()
-
+                print(f"[ZT-DEBUG] self.drafter: {self.drafter}")
         # Request states.
         self.requests: dict[str, CachedRequestState] = {}
         # Persistent batch.
@@ -622,7 +627,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # Hot-Swap lora model
         if self.lora_config:
             self.set_active_loras(self.input_batch, num_scheduled_tokens)
-
+        print(f"[ZT-DEBUG] check the pp rank: {get_pp_group().rank}, has spec_decode_metadata: {spec_decode_metadata is not None}")
+        print(f"[ZT-DEBUG] _prepare_inputs().spec_decode_metadata are: {spec_decode_metadata}")
         return attn_metadata, logits_indices, spec_decode_metadata
 
     def _compute_cascade_attn_prefix_len(
@@ -1182,6 +1188,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             # Speculative decoding is not enabled.
             spec_token_ids = None
         elif self.speculative_config.method == "ngram":
+            # NOTE(ZT): debug note, print the valid_sampled_token_ids, and sampling_metadata to see if the ngram is working
+            print(f"[ZT-DEBUG][worker]valid_sampled_token_ids: {valid_sampled_token_ids}\n"
+                  f"[ZT-DEBUG][worker]sampling_metadata: {sampling_metadata}\n"
+                  f"[ZT-DEBUG][worker]self.drafter: {self.drafter}")
             assert isinstance(self.drafter, NgramProposer)
             spec_token_ids = self.generate_draft_token_ids(
                 valid_sampled_token_ids, sampling_metadata)
@@ -1276,12 +1286,15 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             num_sampled_ids = len(sampled_ids)
             if not num_sampled_ids:
                 # Skip speculative decoding.
+                print(f"[ZT-DEBUG] empty sampled_ids, skip speculative decoding")
                 draft_token_ids.append([])
                 continue
 
             # Skip requests that require top-p, top-k, etc.
             req_id = self.input_batch.req_ids[i]
+            print(f"[ZT-DEBUG] req_id: {req_id}")
             if not is_spec_decode_supported(req_id, self.input_batch):
+                print(f"[ZT-DEBUG] is not spec_decode_supported, skip speculative decoding, req_id: {req_id}")
                 draft_token_ids.append([])
                 continue
 
@@ -1291,10 +1304,14 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             self.input_batch.token_ids_cpu[i, start_idx:end_idx] = sampled_ids
             drafter_output = self.drafter.propose(
                 self.input_batch.token_ids_cpu[i, :end_idx])
+            print(f"[ZT-DEBUG] drafter_output: {drafter_output}")
             if drafter_output is None or len(drafter_output) == 0:
+                print(f"[ZT-DEBUG] drafter_output is None or len(drafter_output) == 0, skip speculative decoding, req_id: {req_id}")
                 draft_token_ids.append([])
             else:
                 draft_token_ids.append(drafter_output.tolist())
+        # NOTE(ZT): debug note, print the draft_token_ids to see if the ngram is working
+        print(f"[ZT-DEBUG][worker][generate_draft_token_ids] draft_token_ids: {draft_token_ids}")
         return draft_token_ids
 
     def load_model(self) -> None:
@@ -1691,7 +1708,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     # TODO: add new branches when introducing more types of
                     # KV cache specs.
                     raise ValueError("Unknown KV cache spec type.")
-
+        # BUG(zt): the sd kv_config is not supported yet.
         bind_kv_cache(
             kv_caches,
             self.vllm_config.compilation_config.static_forward_context,
