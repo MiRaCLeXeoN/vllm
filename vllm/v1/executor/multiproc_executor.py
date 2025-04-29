@@ -313,6 +313,8 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
         if self.parallel_config.pipeline_parallel_size == 1:
             return super().execute_model(sched_out, intermediate_tensor)
         
+        return self.execute_model_batch(sched_out, intermediate_tensor)
+        
         for stage_idx in range(self.parallel_config.pipeline_parallel_size):
             (intermediate_tensor,) = self.collective_rpc("execute_model",
                               args=(sched_out, intermediate_tensor),
@@ -324,7 +326,7 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
             
         sched_out = intermediate_tensor
         return sched_out
-
+    
     def collective_rpc(self,
                        method: Union[str, Callable],
                        timeout: Optional[float] = 180.0,
@@ -403,6 +405,79 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
 
         for rpc_broadcast_mq in self.rpc_broadcast_mq_list:
             rpc_broadcast_mq = None
+
+class PipelineParallelMultiprocExecutorBroadcast(MultiprocExecutor):
+    """
+    Pipeline parallel executor, inherit from MultiprocExecutor
+    """
+    def _init_executor(self, borrow_from_pp: bool = False):
+        super()._init_executor(borrow_from_pp=False)
+        print(f"[ZT-DEBUG] Using multiprocessing broadcast {self.__class__.__name__}")
+        self.rank0_in_last_pp_stage = ((self.parallel_config.pipeline_parallel_size - 1) * 
+            self.parallel_config.tensor_parallel_size)
+        
+    def execute_model(self, scheduler_output, intermediate_tensor: Optional[IntermediateTensors] = None):
+        print(f"[ZT-DEBUG] Using multiprocessing broadcast {self.__class__.__name__}")
+
+        (output, ) = self.collective_rpc("execute_model",
+                                         args=(scheduler_output, intermediate_tensor),
+                                         rank0_reply_only=True,
+                                         timeout=EXECUTE_MODEL_TIMEOUT_S)
+        return output
+    
+    def collective_rpc(self,
+                       method: Union[str, Callable],
+                       timeout: Optional[float] = 180.0,
+                       args: tuple = (),
+                       kwargs: Optional[dict] = None,
+                       rank0_reply_only: bool = False,
+                       ) -> list[Any]:
+        # NOTE(zt): debug the executor is using multiprocessing
+        # NOTE(zt): debug the executor is using multiprocessing
+        print(f"[ZT-DEBUG] Using {self.__class__.__name__} for collective_rpc")
+
+        start_time = time.monotonic()
+
+        kwargs = kwargs or {}
+
+        if self.is_failed:
+            raise RuntimeError("Executor failed.")
+
+        # NOTE: If the args are heterogeneous, then we pack them into a list,
+        # and unpack them in the method of every worker, because every worker
+        # knows their own rank.
+        try:
+            if isinstance(method, str):
+                send_method = method
+            else:
+                send_method = cloudpickle.dumps(
+                    method, protocol=pickle.HIGHEST_PROTOCOL)
+            self.rpc_broadcast_mq.enqueue(
+                (send_method, args, kwargs, rank0_reply_only))
+
+            workers = (self.workers[self.rank0_in_last_pp_stage], ) if rank0_reply_only else self.workers
+            responses = [None] * len(workers)
+            for i, w in enumerate(workers):
+                dequeue_timeout = timeout - (time.monotonic() - start_time
+                                             ) if timeout is not None else None
+                status, result = w.worker_response_mq.dequeue(
+                    timeout=dequeue_timeout, cancel=self.shutdown_event)
+
+                if status != WorkerProc.ResponseStatus.SUCCESS:
+                    raise RuntimeError(
+                        f"Worker failed with error '{result}', please check the"
+                        " stack trace above for the root cause")
+
+                responses[i] = result
+
+            return responses
+        except TimeoutError as e:
+            raise TimeoutError(f"RPC call to {method} timed out.") from e
+            
+    def shutdown(self):
+        """Properly shut down the executor and its workers"""
+        super().shutdown()
+
 
 @dataclass
 class UnreadyWorkerProcHandle:
@@ -624,21 +699,17 @@ class WorkerProc:
         FAILURE = auto()
 
     def worker_busy_loop(self):
+        from vllm.distributed.parallel_state import get_pp_group, get_tp_group
         """Main busy loop for Multiprocessing Workers"""
+        tp_size = self.worker.vllm_config.parallel_config.tensor_parallel_size
+        is_last_rank_in_pp = get_pp_group().is_last_rank
+        is_stage_rank0 = get_tp_group().is_first_rank
+        replay_for_pp = is_last_rank_in_pp and is_stage_rank0
         while True:
             print(f"[ZT-DEBUG][worker {self.rank}] waiting for rpc_broadcast_mq.dequeue()")
+            # rank0_only could be interpreted as "get only 1 ModelOutput"
             method, args, kwargs, rank0_only = self.rpc_broadcast_mq.dequeue()
             print(f"[ZT-DEBUG][worker {self.rank}] dequeued method={method}, rank0_only={rank0_only}")
-
-            pp_stage_idx = kwargs.pop("pp_stage_idx", None)
-            # NOTE(zt): only reply to the stage rank0
-            is_stage_rank0 = False
-            tp_size = self.worker.vllm_config.parallel_config.tensor_parallel_size
-            if pp_stage_idx is not None:
-                is_stage_rank0 = self.rank == pp_stage_idx * tp_size
-            else:
-                is_stage_rank0 = self.rank == 0
-            print(f"[ZT-DEBUG][worker {self.rank}] is_stage_rank0={is_stage_rank0}")
             try:
                 if isinstance(method, str):
                     func = getattr(self.worker, method)
@@ -655,13 +726,13 @@ class WorkerProc:
                 # exception might not be serializable, so we convert it to
                 # string, only for logging purpose.
                 logger.exception(f"[ZT-DEBUG][worker {self.rank}] WorkerProc hit an exception.")
-                if not rank0_only or is_stage_rank0:
+                if not rank0_only or replay_for_pp:
                     print(f"[ZT-DEBUG][worker {self.rank}] enqueue FAILURE to worker_response_mq")
                     self.worker_response_mq.enqueue(
                         (WorkerProc.ResponseStatus.FAILURE, str(e)))
                 continue
 
-            if not rank0_only or is_stage_rank0:
+            if not rank0_only or replay_for_pp:
                 print(f"[ZT-DEBUG][worker {self.rank}] enqueue SUCCESS to worker_response_mq")
                 self.worker_response_mq.enqueue(
                     (WorkerProc.ResponseStatus.SUCCESS, output))

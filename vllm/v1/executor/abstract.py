@@ -52,7 +52,9 @@ class Executor(ExecutorBase):
         # NOTE(zt): take mp-pp for PipelineParallelMultiprocExecutor
         elif distributed_executor_backend == "mp-pp":
             from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutor
-            executor_class = PipelineParallelMultiprocExecutor
+            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutorBroadcast
+            # executor_class = PipelineParallelMultiprocExecutor
+            executor_class = PipelineParallelMultiprocExecutorBroadcast
         else:
             raise ValueError("Unknown distributed executor backend: "
                              f"{distributed_executor_backend}")

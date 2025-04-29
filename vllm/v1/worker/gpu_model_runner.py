@@ -15,7 +15,7 @@ from vllm.attention.layer import Attention
 from vllm.config import CompilationLevel, VllmConfig
 from vllm.distributed.kv_transfer import (get_kv_transfer_group,
                                           has_kv_transfer_group)
-from vllm.distributed.parallel_state import get_pp_group, graph_capture
+from vllm.distributed.parallel_state import get_pp_group, graph_capture, get_tp_group
 from vllm.forward_context import set_forward_context
 from vllm.logger import init_logger
 from vllm.model_executor.layers.fused_moe import FusedMoE
@@ -1076,6 +1076,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             intermediate_tensors = None
         else:
             # TODO(ZP): If not the first rank, get the intermediate result from previous stage.
+            intermediate_tensors = IntermediateTensors(
+                get_pp_group().recv_tensor_dict(
+                    all_gather_group=get_tp_group()))
             assert intermediate_tensors is not None
             assert self.intermediate_tensors is not None
             for k, v in intermediate_tensors.items():
@@ -1101,7 +1104,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if not get_pp_group().is_last_rank:
             # For mid-pipeline stages, return the hidden states.
             print(f"[ZT-DEBUG][worker] Returning hidden_states from mid-pipeline stage, shape={getattr(hidden_states, 'shape', None)}")
-            return hidden_states
+            assert isinstance(hidden_states, IntermediateTensors)
+            get_pp_group().send_tensor_dict(hidden_states.tensors, all_gather_group=get_tp_group())
+            # FIXME(ZP): This is not a ModelRunnerOutput for midle stages
+            # return hidden_states
+            return EMPTY_MODEL_RUNNER_OUTPUT
 
         hidden_states = hidden_states[:num_scheduled_tokens]
         sample_hidden_states = hidden_states[logits_indices]
