@@ -1012,6 +1012,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             # Return empty ModelRunnerOutput if there's no work to do.
             return EMPTY_MODEL_RUNNER_OUTPUT
         print(f"[ZT-DEBUG][worker] execute_model called with scheduler_output type={type(scheduler_output)}, intermediate_tensors type={type(intermediate_tensors)}")
+        # 1. Preapare input
         # Prepare the decoder inputs.
         attn_metadata, logits_indices, spec_decode_metadata = (
             self._prepare_inputs(scheduler_output))
@@ -1027,6 +1028,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             num_input_tokens = num_scheduled_tokens
         attn_metadata.num_input_tokens = num_input_tokens
 
+        # 2. Execute mm encoding
         # _prepare_inputs may reorder the batch, so we must gather multi
         # modal outputs after that to ensure the correct order
         if self.is_multimodal_model:
@@ -1036,6 +1038,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         else:
             mm_embeds = []
 
+        # 3. Preapre other auxiliary 
         if self.is_multimodal_model:
             # NOTE(woosuk): To unify token ids and soft tokens (vision
             # embeddings), we always use embeddings (rather than token ids)
@@ -1062,9 +1065,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         else:
             positions = self.positions[:num_input_tokens]
 
+        # 4. Get intermediate from previous PP stage if necessary
         if get_pp_group().is_first_rank:
             intermediate_tensors = None
         else:
+            # TODO(ZP): If not the first rank, get the intermediate result from previous stage.
             assert intermediate_tensors is not None
             assert self.intermediate_tensors is not None
             for k, v in intermediate_tensors.items():
