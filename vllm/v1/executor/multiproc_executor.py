@@ -429,7 +429,7 @@ class PipelineParallelMultiprocExecutorBroadcast(MultiprocExecutor):
                        ) -> list[Any]:
         # NOTE(zt): debug the executor is using multiprocessing
         # NOTE(zt): debug the executor is using multiprocessing
-        print(f"[ZT-DEBUG] Using {self.__class__.__name__} for collective_rpc")
+        print(f"[ZT-DEBUG] Using {self.__class__.__name__} for collective_rpc {method}")
 
         start_time = time.monotonic()
 
@@ -455,10 +455,13 @@ class PipelineParallelMultiprocExecutorBroadcast(MultiprocExecutor):
             for i, w in enumerate(workers):
                 dequeue_timeout = timeout - (time.monotonic() - start_time
                                              ) if timeout is not None else None
+                print(f"[ZT-DEBUG] Waiting for worker {w.rank}'s output")
                 status, result = w.worker_response_mq.dequeue(
                     timeout=dequeue_timeout, cancel=self.shutdown_event)
+                print(f"[ZT-DEBUG] Get worker {w.rank}'s output")
 
                 if status != WorkerProc.ResponseStatus.SUCCESS:
+                    print(f"[ZT-DEBUG] Worker {w.rank}'s timeout")
                     raise RuntimeError(
                         f"Worker failed with error '{result}', please check the"
                         " stack trace above for the root cause")
@@ -710,9 +713,7 @@ class WorkerProc:
                     func = getattr(self.worker, method)
                 elif isinstance(method, bytes):
                     func = partial(cloudpickle.loads(method), self.worker)
-                print(f"[ZT-DEBUG][worker {self.rank}] executing {method} with args={args} kwargs={kwargs}")
                 output = func(*args, **kwargs)
-                print(f"[ZT-DEBUG][worker {self.rank}] executed {method}, output={type(output)}")
             except Exception as e:
                 # Notes have been introduced in python 3.11
                 if hasattr(e, "add_note"):
@@ -721,12 +722,11 @@ class WorkerProc:
                 # exception might not be serializable, so we convert it to
                 # string, only for logging purpose.
                 if not rank0_only or replay_for_pp:
-                    print(f"[ZT-DEBUG][worker {self.rank}] enqueue FAILURE to worker_response_mq")
                     self.worker_response_mq.enqueue(
                         (WorkerProc.ResponseStatus.FAILURE, str(e)))
                 continue
 
             if not rank0_only or replay_for_pp:
-                print(f"[ZT-DEBUG][worker {self.rank}] enqueue SUCCESS to worker_response_mq")
+                print(f"[ZT-DEBUG][worker {self.rank}] enqueue SUCCESS for {method} to worker_response_mq")
                 self.worker_response_mq.enqueue(
                     (WorkerProc.ResponseStatus.SUCCESS, output))

@@ -625,8 +625,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # Hot-Swap lora model
         if self.lora_config:
             self.set_active_loras(self.input_batch, num_scheduled_tokens)
-        print(f"[ZT-DEBUG] check the pp rank: {get_pp_group().rank}, has spec_decode_metadata: {spec_decode_metadata is not None}")
-        print(f"[ZT-DEBUG] _prepare_inputs().spec_decode_metadata are: {spec_decode_metadata}")
         return attn_metadata, logits_indices, spec_decode_metadata
 
     def _compute_cascade_attn_prefix_len(
