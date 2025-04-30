@@ -774,7 +774,7 @@ def get_kv_cache_config(vllm_config: VllmConfig,
     #       spec: FullAttentionSpec(block_size=16, num_kv_heads=8, head_size=128, dtype=torch.float16, use_mla=False), 
     #       type_id: full_attention_16_65536
     elif vllm_config.speculative_config.method == "eagle":
-        print("[ZT-DEBUG] use sd uniform type kv cache config")
+        # print("[ZT-DEBUG] use sd uniform type kv cache config")
         return _get_kv_cache_config_sd_uniform_type(vllm_config, kv_cache_spec, available_memory)
     raise NotImplementedError
 

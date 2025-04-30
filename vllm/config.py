@@ -1730,7 +1730,10 @@ class ParallelConfig:
                     "supports Ray for distributed inference.")
 
         # NOTE(zt): Use mp-pp as a pp version of mp
-        if self.distributed_executor_backend is not None and self.distributed_executor_backend == "mp" and self.pipeline_parallel_size > 1:
+        if envs.VLLM_USE_V1 and \
+                    self.distributed_executor_backend is not None and \
+                    self.distributed_executor_backend == "mp" and \
+                    self.pipeline_parallel_size > 1:
             self.distributed_executor_backend = "mp-pp"
 
 

@@ -68,6 +68,7 @@ class EngineCoreClient(ABC):
             return AsyncMPClient(vllm_config, executor_class, log_stats)
 
         if multiprocess_mode and not asyncio_mode:
+            # print("[ZT-DEBUG] use SyncMPClient")
             return SyncMPClient(vllm_config, executor_class, log_stats)
 
         return InprocClient(vllm_config, executor_class, log_stats)
@@ -268,7 +269,9 @@ class CoreEngine:
         self.index = index
         self.identity = index.to_bytes(length=2, byteorder="little")
         try:
+            # print("[ZT-DEBUG] start core engine proc")
             # Start EngineCore in background process.
+
             self.proc_handle = BackgroundProcHandle(
                 input_path=input_path,
                 output_path=output_path,
@@ -282,6 +285,7 @@ class CoreEngine:
                     "log_stats": log_stats,
                 })
 
+            # print("[ZT-DEBUG] finish core engine proc")
             self.num_reqs_in_flight = 0
         finally:
             if not hasattr(self, "num_reqs_in_flight"):
@@ -375,24 +379,30 @@ class MPClient(EngineCoreClient):
         success = False
         try:
             # Paths and sockets for IPC.
+            # print("[ZT-DEBUG] start")
             self.output_path = get_open_zmq_ipc_path()
             input_path = get_open_zmq_ipc_path()
+            # print("[ZT-DEBUG] 0")
             self.input_socket = make_zmq_socket(self.ctx,
                                                 input_path,
                                                 zmq.ROUTER,
                                                 bind=True)
             self.resources.input_socket = self.input_socket
+            # print("[ZT-DEBUG] 1")
 
             new_core_engine = lambda index, local_dp_rank=None: CoreEngine(
                 vllm_config, executor_class, log_stats, input_path, self.
                 output_path, index, local_dp_rank)
 
+            # print("[ZT-DEBUG] 2")
             # Start engine core process(es).
             self._init_core_engines(vllm_config, new_core_engine,
                                     self.resources.core_engines)
 
             # Wait for engine core process(es) to start.
+            # print("[ZT-DEBUG] here")
             self._wait_for_engine_startup()
+            # print("[ZT-DEBUG] another here")
 
             self.utility_results: dict[int, AnyFuture] = {}
             success = True

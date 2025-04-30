@@ -350,6 +350,8 @@ class EngineCoreProc(EngineCore):
                         local_dp_rank: int = 0,
                         **kwargs):
         """Launch EngineCore busy loop in background process."""
+        
+        # print("[ZT-DEBUG] running engine core")
 
         # Signal handler used for graceful termination.
         # SystemExit exception is only raised once to allow this and worker
