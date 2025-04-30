@@ -613,10 +613,6 @@ def is_kv_cache_type_uniform(kv_cache_spec: dict[str, KVCacheSpec]) -> bool:
     """
 
     layer_keys = set(layer.type_id for layer in kv_cache_spec.values())
-    # NOTE(zt): print the kv_cache_spec
-    print(f"[ZT-DEBUG] kv_cache_spec: {kv_cache_spec}")
-    for layer_name, spec in kv_cache_spec.items():
-        print(f"    [ZT-DEBUG] layer_name: {layer_name}, spec: {spec}, type_id: {spec.type_id}")
     return len(layer_keys) == 1
 
 

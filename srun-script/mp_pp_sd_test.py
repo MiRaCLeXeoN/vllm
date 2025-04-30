@@ -1,3 +1,5 @@
+import os
+os.environ["VLLM_USE_V1"]="1"
 from vllm import LLM, SamplingParams
 
 prompts_file_path = "prompts.txt"
@@ -7,7 +9,7 @@ with open(prompts_file_path, "r") as f:
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
 llm = LLM(
-    model="facebook/opt-6.7b",
+    model="/scr/dataset/yuke/zepeng/models/models--facebook--opt-6.7b/snapshots/a45aa65bbeb77c1558bc99bedc6779195462dab0",
     tensor_parallel_size=1,
     pipeline_parallel_size=2,
     device="cuda",
@@ -21,7 +23,7 @@ llm = LLM(
     speculative_config={
         # "model": "ibm-ai-platform/llama3-70b-accelerator",
         # "model": "facebook/opt-125m",
-        "model" : "yuhuili/EAGLE-LLaMA3-Instruct-8B",
+        "model" : "/scr/dataset/yuke/zepeng/models/models--yuhuili--EAGLE-LLaMA3-Instruct-8B/snapshots/02d97adb0cacd1a50d4af8db61f4aca424ba2531",
         "method": "eagle",
         "draft_tensor_parallel_size": 1,
         "num_speculative_tokens": 5,

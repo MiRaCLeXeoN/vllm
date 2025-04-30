@@ -904,8 +904,6 @@ class ModelConfig:
         pipeline_parallel_size = parallel_config.pipeline_parallel_size
         if pipeline_parallel_size > 1:
             if not self.registry.is_pp_supported_model(self.architectures):
-                print("[ZT-DEBUG] architectures: ", self.architectures) 
-                print("[ZT-DEBUG] model:", getattr(self, "model", None))
                 raise NotImplementedError(
                     "Pipeline parallelism is not supported for this model. "
                     "Supported models implement the `SupportsPP` interface.")
@@ -1734,7 +1732,6 @@ class ParallelConfig:
         # NOTE(zt): Use mp-pp as a pp version of mp
         if self.distributed_executor_backend is not None and self.distributed_executor_backend == "mp" and self.pipeline_parallel_size > 1:
             self.distributed_executor_backend = "mp-pp"
-            print(f"[ZT-DEBUG]Using mp-pp as a pp version of mp for distributed inference")
 
 
         if self.distributed_executor_backend is None and self.world_size > 1:

@@ -313,8 +313,6 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
         if self.parallel_config.pipeline_parallel_size == 1:
             return super().execute_model(sched_out, intermediate_tensor)
         
-        return self.execute_model_batch(sched_out, intermediate_tensor)
-        
         for stage_idx in range(self.parallel_config.pipeline_parallel_size):
             (intermediate_tensor,) = self.collective_rpc("execute_model",
                               args=(sched_out, intermediate_tensor),
@@ -336,8 +334,6 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
                        pp_stage_idx: Optional[int] = None, # NOTE(zt): pp stage worker specific
                        ) -> list[Any]:
         # NOTE(zt): debug the executor is using multiprocessing
-        print(f"[ZT-DEBUG] Using {self.__class__.__name__} for collective_rpc")
-        print(f"[ZT-DEBUG][main] collective_rpc: method={method}, args={args}, rank0_reply_only={rank0_reply_only}, pp_stage_idx={pp_stage_idx}")
         start_time = time.monotonic()
         kwargs = kwargs or {}
 
@@ -391,7 +387,6 @@ class PipelineParallelMultiprocExecutor(MultiprocExecutor):
 
                 return responses
         except TimeoutError as e:
-            print(f"[ZT-DEBUG][main] TimeoutError in collective_rpc: method={method}")
             raise TimeoutError(f"RPC call to {method} timed out.") from e
             
     def shutdown(self):
@@ -725,7 +720,6 @@ class WorkerProc:
                 logger.exception("WorkerProc hit an exception.")
                 # exception might not be serializable, so we convert it to
                 # string, only for logging purpose.
-                logger.exception(f"[ZT-DEBUG][worker {self.rank}] WorkerProc hit an exception.")
                 if not rank0_only or replay_for_pp:
                     print(f"[ZT-DEBUG][worker {self.rank}] enqueue FAILURE to worker_response_mq")
                     self.worker_response_mq.enqueue(

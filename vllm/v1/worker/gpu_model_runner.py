@@ -165,7 +165,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # Set up speculative decoding.
         self.use_spec_decode = False
         # NOTE(zt): print the ngram config
-        print(f"[ZT-DEBUG] Using speculative decoding with config: {self.speculative_config}")
         if self.speculative_config:
             self.use_spec_decode = True
             if get_pp_group().is_last_rank:
@@ -178,7 +177,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     raise ValueError("Unknown speculative decoding method: "
                                      f"{self.speculative_config.method}")
                 self.rejection_sampler = RejectionSampler()
-                print(f"[ZT-DEBUG] self.drafter: {self.drafter}")
         # Request states.
         self.requests: dict[str, CachedRequestState] = {}
         # Persistent batch.
@@ -1200,10 +1198,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             # Speculative decoding is not enabled.
             spec_token_ids = None
         elif self.speculative_config.method == "ngram":
-            # NOTE(ZT): debug note, print the valid_sampled_token_ids, and sampling_metadata to see if the ngram is working
-            print(f"[ZT-DEBUG][worker]valid_sampled_token_ids: {valid_sampled_token_ids}\n"
-                  f"[ZT-DEBUG][worker]sampling_metadata: {sampling_metadata}\n"
-                  f"[ZT-DEBUG][worker]self.drafter: {self.drafter}")
             assert isinstance(self.drafter, NgramProposer)
             spec_token_ids = self.generate_draft_token_ids(
                 valid_sampled_token_ids, sampling_metadata)
@@ -1316,14 +1310,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             self.input_batch.token_ids_cpu[i, start_idx:end_idx] = sampled_ids
             drafter_output = self.drafter.propose(
                 self.input_batch.token_ids_cpu[i, :end_idx])
-            print(f"[ZT-DEBUG] drafter_output: {drafter_output}")
             if drafter_output is None or len(drafter_output) == 0:
-                print(f"[ZT-DEBUG] drafter_output is None or len(drafter_output) == 0, skip speculative decoding, req_id: {req_id}")
                 draft_token_ids.append([])
             else:
                 draft_token_ids.append(drafter_output.tolist())
-        # NOTE(ZT): debug note, print the draft_token_ids to see if the ngram is working
-        print(f"[ZT-DEBUG][worker][generate_draft_token_ids] draft_token_ids: {draft_token_ids}")
         return draft_token_ids
 
     def load_model(self) -> None:
