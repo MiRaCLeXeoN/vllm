@@ -41,8 +41,11 @@ class Executor(ExecutorBase):
                 RayDistributedExecutor)
             executor_class = RayDistributedExecutor
         elif distributed_executor_backend == "mp":
-            from vllm.v1.executor.multiproc_executor import MultiprocExecutor
-            executor_class = MultiprocExecutor
+            # NOTE(zt): use PipelineParallelMultiprocExecutorBroadcast as a pp version of mp
+            # from vllm.v1.executor.multiproc_executor import MultiprocExecutor
+            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutorBroadcast
+            # print(f"[ZT- Use PipelineParallelMultiprocExecutorBroadcast for all mp")
+            executor_class = PipelineParallelMultiprocExecutorBroadcast
         elif distributed_executor_backend == "uni":
             executor_class = UniProcExecutor
         elif distributed_executor_backend == "external_launcher":
@@ -51,9 +54,9 @@ class Executor(ExecutorBase):
             executor_class = ExecutorWithExternalLauncher
         # NOTE(zt): take mp-pp for PipelineParallelMultiprocExecutor
         elif distributed_executor_backend == "mp-pp":
-            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutor
-            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutorBroadcast
             # executor_class = PipelineParallelMultiprocExecutor
+            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutorBroadcast
+            # print(f"[ZT- Use PipelineParallelMultiprocExecutorBroadcast")
             executor_class = PipelineParallelMultiprocExecutorBroadcast
         else:
             raise ValueError("Unknown distributed executor backend: "

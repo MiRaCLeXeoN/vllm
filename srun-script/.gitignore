@@ -1,0 +1,6 @@
+*.log
+
+# Ignore prompts
+srun-script/prompts
+*.err
+*.out

@@ -116,12 +116,12 @@ class BackgroundProcHandle:
                                              kwargs=process_kwargs,
                                              name=process_name)
 
-        # print("[ZT-DEBUG] start weakref")
+        # print(f"[ZT-DEBUG] start weakref")
         self._finalizer = weakref.finalize(self, shutdown, self.proc,
                                            input_path, output_path)
-        # print("[ZT-DEBUG] start back ground proc")
+        # print(f"[ZT-DEBUG] start back ground proc")
         self.proc.start()
-        # print("[ZT-DEBUG] finish back ground proc")
+        # print(f"[ZT-DEBUG] finish back ground proc")
 
     def fileno(self):
         return self.proc.sentinel

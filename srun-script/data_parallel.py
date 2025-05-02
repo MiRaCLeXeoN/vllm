@@ -44,7 +44,7 @@ def main(model,
 
     cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"]
     device_ids = cuda_visible_devices.split(",")
-    world_size = tp_size * dp_size
+    world_size = tp_size * pp_size
     world_size_with_dp = dp_size * world_size
     assert(world_size_with_dp <= len(device_ids))
     visible_device_ids = device_ids[local_dp_rank * world_size:(local_dp_rank + 1) * world_size]
@@ -111,6 +111,8 @@ if __name__ == "__main__":
     
     if args.version == 1:
         os.environ["VLLM_USE_V1"] = "1"
+    else:
+        os.environ["VLLM_USE_V1"] = "0"
     
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3,4,5,6,7"
 

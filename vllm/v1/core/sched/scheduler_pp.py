@@ -29,10 +29,12 @@ from vllm.v1.request import Request, RequestStatus
 from vllm.v1.spec_decode.metrics import SpecDecodingStats
 from vllm.v1.structured_output import StructuredOutputManager
 
+from .scheduler import Scheduler
+
 logger = init_logger(__name__)
 
 
-class Scheduler(SchedulerInterface):
+class SchedulerPipelineParallel(Scheduler):
 
     def __init__(
         self,
@@ -43,93 +45,11 @@ class Scheduler(SchedulerInterface):
         include_finished_set: bool = False,
         log_stats: bool = False,
     ) -> None:
-        self.vllm_config = vllm_config
-        self.scheduler_config = vllm_config.scheduler_config
-        self.cache_config = vllm_config.cache_config
-        self.lora_config = vllm_config.lora_config
-        self.kv_cache_config = kv_cache_config
-        self.log_stats = log_stats
-        self.structured_output_manager = structured_output_manager
+        super().__init__(vllm_config, kv_cache_config, structured_output_manager, 
+                         mm_registry, include_finished_set, log_stats)
 
-        # include_finished_set controls whether a separate set of finished
-        # request ids should be included in the EngineCoreOutputs returned
-        # by update_from_outputs(). This is currently used in the multi-engine
-        # case to track request lifetimes efficiently.
-        self.include_finished_set = include_finished_set
+        self.request_ids_running_pp = set()
 
-        # Scheduling constraints.
-        self.max_num_running_reqs = self.scheduler_config.max_num_seqs
-        self.max_num_scheduled_tokens = \
-            self.scheduler_config.max_num_batched_tokens
-        self.max_model_len = self.scheduler_config.max_model_len
-
-        # Create KVConnector for the Scheduler. Note that each Worker
-        # will have a corresponding KVConnector with Role=WORKER.
-        # KV Connector pushes/pull of remote KVs for P/D and offloading.
-        self.connector = None
-        if self.vllm_config.kv_transfer_config is not None:
-            self.connector = KVConnectorFactory.create_connector_v1(
-                config=self.vllm_config, role=KVConnectorRole.SCHEDULER)
-
-        num_gpu_blocks = self.cache_config.num_gpu_blocks
-        assert num_gpu_blocks is not None and num_gpu_blocks > 0
-
-        # Create the KV cache manager.
-        self.kv_cache_manager = KVCacheManager(
-            kv_cache_config=kv_cache_config,
-            max_model_len=self.max_model_len,
-            enable_caching=self.cache_config.enable_prefix_caching,
-            caching_hash_algo=self.cache_config.prefix_caching_hash_algo,
-            log_stats=self.log_stats)
-        self.block_size = self.cache_config.block_size
-
-        # req_id -> Request
-        self.requests: dict[str, Request] = {}
-        # Priority queues for requests.
-        self.waiting: deque[Request] = deque()
-        self.running: list[Request] = []
-        # The requests that have been scheduled and are being executed
-        # by the executor.
-        # Not necessarily this round.
-        self.scheduled_req_ids: set[str] = set()
-
-        # The request IDs that are finished in between the previous and the
-        # current steps. This is used to notify the workers about the finished
-        # requests so that they can free the cached states for those requests.
-        # This is flushed at the end of each scheduling step.
-        self.finished_req_ids: set[str] = set()
-
-        # OPTIMIZATION: Cache the CachedRequestData objects to avoid creating
-        # them at each scheduling step.
-        # Request id -> CachedRequestData
-        self._cached_reqs_data: dict[str, CachedRequestData] = {}
-
-        # Encoder-related.
-        # Calculate encoder cache size if applicable
-        # NOTE: For now we use the same budget for both compute and space.
-        # This can be changed when we make encoder cache for embedding caching
-        # across requests.
-        encoder_compute_budget, encoder_cache_size = compute_encoder_budget(
-            model_config=vllm_config.model_config,
-            scheduler_config=vllm_config.scheduler_config,
-            mm_registry=mm_registry,
-        )
-
-        # NOTE(woosuk): Here, "encoder" includes the vision encoder (and
-        # projector if needed). Currently, we assume that the encoder also
-        # has the Transformer architecture (e.g., ViT).
-        self.max_num_encoder_input_tokens = encoder_compute_budget
-        # NOTE: For the models without encoder (e.g., text-only models),
-        # the encoder cache will not be initialized because cache size is 0
-        # for these models.
-        self.encoder_cache_manager = EncoderCacheManager(
-            cache_size=encoder_cache_size)
-
-        self.num_lookahead_tokens = 0
-        speculative_config = vllm_config.speculative_config
-        if speculative_config and speculative_config.method == "eagle":
-            self.num_lookahead_tokens = \
-                speculative_config.num_speculative_tokens
 
     def schedule(self) -> SchedulerOutput:
         # NOTE(woosuk) on the scheduling algorithm:
@@ -221,6 +141,7 @@ class Scheduler(SchedulerInterface):
                         preempted_req.record_event(
                             EngineCoreEventType.PREEMPTED, scheduled_timestamp)
 
+                    # Add preempted 
                     self.waiting.appendleft(preempted_req)
                     preempted_reqs.append(preempted_req)
                     if preempted_req == request:
