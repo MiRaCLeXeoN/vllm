@@ -49,6 +49,7 @@ class SchedulerPipelineParallel(Scheduler):
                          mm_registry, include_finished_set, log_stats)
 
         self.request_ids_running_pp = set()
+        self.pipeline_parallel_size = self.vllm_config.parallel_config.pipeline_parallel_size
 
 
     def schedule(self) -> SchedulerOutput:
@@ -77,6 +78,7 @@ class SchedulerPipelineParallel(Scheduler):
         structured_output_request_ids: dict[str, int] = {}
 
         req_to_new_block_ids: dict[str, list[int]] = {}
+        # Request id -> num
         num_scheduled_tokens: dict[str, int] = {}
         token_budget = self.max_num_scheduled_tokens
         # Encoder-related.
@@ -92,7 +94,8 @@ class SchedulerPipelineParallel(Scheduler):
         req_index = 0
         while req_index < len(self.running) and token_budget > 0:
             request = self.running[req_index]
-            if request.request_id in self.scheduled_req_ids:
+            if (request.request_id in self.scheduled_req_ids
+                or request.request_id in self.request_ids_running_pp):
                 # This request has already been scheduled.
                 req_index += 1
                 continue
@@ -211,6 +214,9 @@ class SchedulerPipelineParallel(Scheduler):
                     break
 
                 request = self.waiting[0]
+
+                if request.request_id in self.request_ids_running_pp:
+                    continue
 
                 # Skip request if the structured output request is still waiting
                 # for FSM compilation.
@@ -350,6 +356,19 @@ class SchedulerPipelineParallel(Scheduler):
                 self.kv_cache_manager.get_num_common_prefix_blocks(
                     any_request, len(self.running)))
 
+        # Mark all scheduled requests, to prevent them from being scheduled
+        # while on the fly in PP.
+        # TODO(ZP): Remove these uncessary check after debugging
+        scheduled_new_req_ids = [req.request_id for req in scheduled_new_reqs]
+        scheduled_resumed_req_ids = [req.request_id for req in scheduled_resumed_reqs]
+        scheduled_running_req_ids = [req.request_id for req in scheduled_running_reqs] 
+        assert self.request_ids_running_pp.isdisjoint(scheduled_new_req_ids)
+        assert self.request_ids_running_pp.isdisjoint(scheduled_resumed_req_ids)
+        assert self.request_ids_running_pp.isdisjoint(scheduled_running_req_ids)
+        self.request_ids_running_pp.update(scheduled_new_req_ids)
+        self.request_ids_running_pp.update(scheduled_resumed_req_ids)
+        self.request_ids_running_pp.update(scheduled_running_req_ids)
+
         grammar_bitmask = self.structured_output_manager.grammar_bitmask(
             self.requests,
             structured_output_request_ids,
@@ -417,6 +436,7 @@ class SchedulerPipelineParallel(Scheduler):
         for req_id, num_scheduled_token in num_scheduled_tokens.items():
             self.requests[req_id].num_computed_tokens += num_scheduled_token
 
+        # Clear the finished set so that they won't be inherited across steps.
         self.finished_req_ids = set()
         return scheduler_output
 
@@ -543,6 +563,10 @@ class SchedulerPipelineParallel(Scheduler):
         new_running: list[Request] = []
         outputs: list[EngineCoreOutput] = []
         spec_decoding_stats: Optional[SpecDecodingStats] = None
+
+        # Remove requests from being marked as on the fly in PP
+        self.request_ids_running_pp -= set([new_req_data.req_id for new_req_data in scheduler_output.scheduled_new_reqs])
+        self.request_ids_running_pp -= set([cached_req_data.req_id for cached_req_data in scheduler_output.scheduled_cached_reqs])
 
         # NOTE(woosuk): As len(self.running) can be up to 1K or more, the below
         # loop can be a performance bottleneck. We should do our best to avoid

@@ -288,8 +288,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         new/resumed/paused/finished request in the batch.
         """
         # Remove finished requests from the cached states.
-        # NOTE(zt): when a intermediate stage worker of pp run, the scheduler_output is a intermediate_tensor
-        # it has no finished_req_ids
         for req_id in scheduler_output.finished_req_ids:
             self.requests.pop(req_id, None)
             self.encoder_cache.pop(req_id, None)

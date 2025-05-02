@@ -60,7 +60,6 @@ class EngineCore:
         self.log_stats = log_stats
 
         # Setup Model.
-        # NOTE(zt): We replace the multiproc_executor to PipelineParallelMultiprocExecutor
         self.model_executor = executor_class(vllm_config)
         if executor_fail_callback is not None:
             self.model_executor.register_failure_callback(

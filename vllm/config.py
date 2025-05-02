@@ -2016,7 +2016,6 @@ class SchedulerConfig:
                 "long_prefill_token_threshold=%d",
                 self.max_num_partial_prefills, self.max_long_partial_prefills,
                 self.long_prefill_token_threshold)
-
         self._verify_args()
 
     def _verify_args(self) -> None:
@@ -3853,6 +3852,9 @@ class VllmConfig:
                 "Turing devices tensor cores do not support float32 matmul. "
                 "To workaround this limitation, vLLM will set 'ieee' input "
                 "precision for chunked prefill triton kernels.")
+        
+        # if self.scheduler_config is not None and self.parallel_config.pipeline_parallel_size > 1:
+        #     self.scheduler_config.scheduler_cls = "vllm.v1.core.sched.scheduler_pp.SchedulerPipelineParallel"
 
         if self.compilation_config is None:
             self.compilation_config = CompilationConfig()

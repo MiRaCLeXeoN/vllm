@@ -41,23 +41,17 @@ class Executor(ExecutorBase):
                 RayDistributedExecutor)
             executor_class = RayDistributedExecutor
         elif distributed_executor_backend == "mp":
-            # NOTE(zt): use PipelineParallelMultiprocExecutorBroadcast as a pp version of mp
-            # from vllm.v1.executor.multiproc_executor import MultiprocExecutor
-            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutorBroadcast
-            # print(f"[ZT- Use PipelineParallelMultiprocExecutorBroadcast for all mp")
-            executor_class = PipelineParallelMultiprocExecutorBroadcast
+            from vllm.v1.executor.multiproc_executor import MultiprocExecutor
+            executor_class = MultiprocExecutor
         elif distributed_executor_backend == "uni":
             executor_class = UniProcExecutor
         elif distributed_executor_backend == "external_launcher":
             # TODO: make v1 scheduling deterministic
             # to support external launcher
             executor_class = ExecutorWithExternalLauncher
-        # NOTE(zt): take mp-pp for PipelineParallelMultiprocExecutor
         elif distributed_executor_backend == "mp-pp":
-            # executor_class = PipelineParallelMultiprocExecutor
-            from vllm.v1.executor.multiproc_executor import PipelineParallelMultiprocExecutorBroadcast
-            # print(f"[ZT- Use PipelineParallelMultiprocExecutorBroadcast")
-            executor_class = PipelineParallelMultiprocExecutorBroadcast
+            from vllm.v1.executor.multiproc_executor import PPMultiprocExecutor
+            executor_class = PPMultiprocExecutor
         else:
             raise ValueError("Unknown distributed executor backend: "
                              f"{distributed_executor_backend}")
