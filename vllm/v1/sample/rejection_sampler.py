@@ -474,9 +474,9 @@ def rejection_greedy_sample_kernel(
         is_greedy = True
     else:
         is_greedy = tl.load(is_greedy_ptr + req_idx)
-    if not is_greedy:
-        # Early exit for non-greedy sampling requests.
-        return
+        if is_greedy == 0:
+            # Early exit for non-greedy sampling requests.
+            return
 
     if req_idx == 0:
         start_idx = 0

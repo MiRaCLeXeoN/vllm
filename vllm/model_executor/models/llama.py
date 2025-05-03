@@ -310,8 +310,11 @@ class LlamaModel(nn.Module):
                       (lora_config.max_loras or 1)) if lora_config else 0
         self.vocab_size = config.vocab_size + lora_vocab
         self.org_vocab_size = config.vocab_size
-        if get_pp_group().is_first_rank or (config.tie_word_embeddings
-                                            and get_pp_group().is_last_rank):
+        # We must borrow embeddings layer from target mode, since eagle 3 doesn't provide.
+        tie_word_embeddings = get_pp_group().is_last_rank and (
+            config.tie_word_embeddings or vllm_config.speculative_config.method == "eagle3"
+        )
+        if get_pp_group().is_first_rank or tie_word_embeddings:
             self.embed_tokens = VocabParallelEmbedding(
                 self.vocab_size,
                 config.hidden_size,
@@ -334,13 +337,24 @@ class LlamaModel(nn.Module):
             self.norm = PPMissingLayer()
 
         self.aux_hidden_state_layers: tuple[int] = tuple()
+        self.use_aux_hidden_states = False
 
         self.make_empty_intermediate_tensors = (
             make_empty_intermediate_tensors_factory(
-                ["hidden_states", "residual"], config.hidden_size))
+                ["hidden_states", "residual", "aux_hidden_states"], config.hidden_size))
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.embed_tokens(input_ids)
+    
+    def set_aux_empty_intermediate_tensors(self, layers: tuple[int]):
+        """Filter out layers that doesn't belong to this PP stage."""
+        l = []
+        for layer_idx in layers:
+            if self.start_layer <= layer_idx < self.end_layer:
+                l.append(layer_idx)
+        self.aux_hidden_state_layers = tuple(l)
+        self.use_aux_hidden_states = True
+        print(f"set {self.use_aux_hidden_states=}, {self.aux_hidden_state_layers=}")
 
     def forward(
         self,
@@ -356,28 +370,57 @@ class LlamaModel(nn.Module):
             else:
                 hidden_states = self.get_input_embeddings(input_ids)
             residual = None
+            prev_aux_hidden_states = None
         else:
             assert intermediate_tensors is not None
             hidden_states = intermediate_tensors["hidden_states"]
             residual = intermediate_tensors["residual"]
+            if self.use_aux_hidden_states:
+                prev_aux_hidden_states = intermediate_tensors["aux_hidden_states"]
+                if prev_aux_hidden_states.numel() == 0:
+                    # No valid hidden states from previous stage
+                    prev_aux_hidden_states = None
 
         aux_hidden_states = []
         for idx, layer in enumerate(
                 self.layers[self.start_layer:self.end_layer]):
-            if idx in self.aux_hidden_state_layers:
+            if isinstance(layer, PPMissingLayer):
+                continue
+            if (idx + self.start_layer) in self.aux_hidden_state_layers:
+                # print(f"add {len(aux_hidden_states)}")
                 aux_hidden_states.append(hidden_states + residual)
             hidden_states, residual = layer(positions, hidden_states, residual)
 
+        if self.use_aux_hidden_states:
+            auxs = []
+            if prev_aux_hidden_states is not None:
+                auxs.append(prev_aux_hidden_states)
+            if len(aux_hidden_states) > 0:
+                auxs.extend(aux_hidden_states)
+            if len(auxs) > 0:
+                new_aux_hidden_states = torch.cat(auxs, dim=-1)
+            else:
+                new_aux_hidden_states = torch.empty(0)
+
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            # print(f"returned {new_aux_hidden_states.shape}, {new_aux_hidden_states.device}")
+            if self.use_aux_hidden_states:
+                return IntermediateTensors({
+                    "hidden_states": hidden_states,
+                    "residual": residual,
+                    "aux_hidden_states": new_aux_hidden_states,
+                }), None
+            else:
+                return IntermediateTensors({
+                    "hidden_states": hidden_states,
+                    "residual": residual,
+                })
 
         hidden_states, _ = self.norm(hidden_states, residual)
 
-        if len(aux_hidden_states) > 0:
-            return hidden_states, aux_hidden_states
+        # print(f"final {new_aux_hidden_states.shape=}")
+        if self.use_aux_hidden_states:
+            return hidden_states, new_aux_hidden_states
         return hidden_states
 
     def load_weights(self, weights: Iterable[Tuple[str,
@@ -531,7 +574,7 @@ class LlamaForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             self.model.make_empty_intermediate_tensors)
 
     def set_aux_hidden_state_layers(self, layers: tuple[int]) -> None:
-        self.model.aux_hidden_state_layers = layers
+        self.model.set_aux_empty_intermediate_tensors(layers)
 
     def get_eagle3_aux_hidden_state_layers(self) -> tuple[int]:
         num_layers = len(self.model.layers)

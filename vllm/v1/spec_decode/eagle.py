@@ -275,11 +275,19 @@ class EagleProposer:
 
     def load_model(self, target_model: nn.Module) -> None:
         loader = get_model_loader(self.vllm_config.load_config)
-        target_layer_num = self.vllm_config.model_config.get_num_layers(
-            self.vllm_config.parallel_config)
 
         draft_model_config = \
             self.vllm_config.speculative_config.draft_model_config
+
+        num_target_model_layers = self.vllm_config.model_config.get_num_layers(
+            self.vllm_config.parallel_config)
+
+        start_layer_id = num_target_model_layers
+        
+        if self.vllm_config.parallel_config.pipeline_parallel_size > 1:
+            # We force the start layer to be 0 in this case
+            start_layer_id = 0
+
         # FIXME(lily): This does not handle with distributed inference.
         target_device = self.vllm_config.device_config.device
         # We need to set the vllm_config here to register attention
@@ -291,7 +299,7 @@ class EagleProposer:
                 draft_model_config.architectures)
             self.model = draft_model_cls(
                 vllm_config=self.vllm_config,
-                start_layer_id=target_layer_num).to(target_device)
+                start_layer_id=start_layer_id).to(target_device)
 
         loaded_weights = self.model.load_weights(
             loader.get_all_weights(draft_model_config, self.model))

@@ -180,6 +180,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     raise ValueError("Unknown speculative decoding method: "
                                      f"{self.speculative_config.method}")
                 self.rejection_sampler = RejectionSampler()
+            else:
+                # Always sets this
+                if self.speculative_config.method == "eagle3":
+                    self.use_aux_hidden_state_outputs = True
+                    
 
         # Request states.
         self.requests: dict[str, CachedRequestState] = {}
@@ -1091,18 +1096,20 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             intermediate_tensors = None
         else:
             # TODO(ZP): If not the first rank, get the intermediate result from previous stage.
-            intermediate_tensors = IntermediateTensors(
-                get_pp_group().recv_tensor_dict(
-                    all_gather_group=get_tp_group()))
-            assert intermediate_tensors is not None
-            assert self.intermediate_tensors is not None
-            for k, v in intermediate_tensors.items():
-                self.intermediate_tensors[k][:num_input_tokens].copy_(
-                    v[:num_input_tokens], non_blocking=True)
-            intermediate_tensors = IntermediateTensors({
-                k: v[:num_input_tokens]
-                for k, v in self.intermediate_tensors.items()
-            })
+            tensor_dict = get_pp_group().recv_tensor_dict(all_gather_group=get_tp_group())
+            # for k, v in tensor_dict.items():
+            #     tensor_dict[k] = v.to(self.device)
+            intermediate_tensors = IntermediateTensors(tensor_dict)
+            # TODO(ZP): Fix the size of the aux hidden states so that we can compile the graph.
+            # assert intermediate_tensors is not None
+            # assert self.intermediate_tensors is not None
+            # for k, v in intermediate_tensors.items():
+                # self.intermediate_tensors[k][:num_input_tokens].copy_(
+                    # v[:num_input_tokens], non_blocking=True)
+            # intermediate_tensors = IntermediateTensors({
+            #     k: v[:num_input_tokens]
+            #     for k, v in self.intermediate_tensors.items()
+            # })
 
         # Run the decoder.
         # Use persistent buffers for CUDA graphs.
@@ -1123,7 +1130,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         if not get_pp_group().is_last_rank:
             # For mid-pipeline stages, return the hidden states.
-            # print(f"[ZT-DEBUG][worker] Returning hidden_states from mid-pipeline stage, shape={getattr(hidden_states, 'shape', None)}")
+            # If not last stage, we always get intermediate tensors.
             assert isinstance(hidden_states, IntermediateTensors)
             get_pp_group().send_tensor_dict(hidden_states.tensors, all_gather_group=get_tp_group())
             # FIXME(ZP): This is not a ModelRunnerOutput for midle stages
@@ -1248,9 +1255,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 target_token_ids = self.input_ids[:num_scheduled_tokens]
                 target_positions = positions[:num_scheduled_tokens]
                 if self.use_aux_hidden_state_outputs:
-                    target_hidden_states = torch.cat(
-                        [h[:num_scheduled_tokens] for h in aux_hidden_states],
-                        dim=-1)
+                    target_hidden_states = aux_hidden_states[:num_scheduled_tokens]
+                    # torch.cat(
+                    #     [h[:num_scheduled_tokens] for h in aux_hidden_states],
+                    #     dim=-1)
                 else:
                     target_hidden_states = hidden_states[:num_scheduled_tokens]
                 target_slot_mapping = attn_metadata.slot_mapping
@@ -1274,8 +1282,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 target_token_ids = self.input_ids[token_indices]
                 target_positions = positions[token_indices]
                 if self.use_aux_hidden_state_outputs:
-                    target_hidden_states = torch.cat(
-                        [h[token_indices] for h in aux_hidden_states], dim=-1)
+                    target_hidden_states = aux_hidden_states[token_indices]
+                    # torch.cat(
+                    #     [h[token_indices] for h in aux_hidden_states], dim=-1)
                 else:
                     target_hidden_states = hidden_states[token_indices]
                 target_slot_mapping = attn_metadata.slot_mapping[token_indices]
