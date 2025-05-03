@@ -978,6 +978,35 @@ class ModelConfig:
 
             if self.use_async_output_proc:
                 self.use_async_output_proc = False
+    
+    def verify_with_spec_parallel_config(
+        self,
+        parallel_config: "ParallelConfig",
+    ) -> None:
+        if parallel_config.distributed_executor_backend == "external_launcher":
+            assert self.seed is not None, (
+                "Seed must be set when using external launcher backend to "
+                "make sure sampling results are the same across workers.")
+
+        total_num_attention_heads = getattr(self.hf_text_config,
+                                            "num_attention_heads", 0)
+        tensor_parallel_size = parallel_config.tensor_parallel_size
+        if total_num_attention_heads % tensor_parallel_size != 0:
+            raise ValueError(
+                f"Total number of attention heads ({total_num_attention_heads})"
+                " must be divisible by tensor parallel size "
+                f"({tensor_parallel_size}).")
+        
+        if parallel_config.enable_expert_parallel:
+            self._verify_with_expert_parallelism()
+
+        # Don't check for PP support
+
+        pipeline_parallel_size = parallel_config.pipeline_parallel_size
+        if pipeline_parallel_size > 1:
+            if self.use_async_output_proc:
+                self.use_async_output_proc = False
+                
 
     def get_hf_config_sliding_window(
             self) -> Union[Optional[int], list[Optional[int]]]:
@@ -2613,7 +2642,7 @@ class SpeculativeConfig:
                              f"than zero ({self.num_speculative_tokens}).")
 
         if self.draft_model_config:
-            self.draft_model_config.verify_with_parallel_config(
+            self.draft_model_config.verify_with_spec_parallel_config(
                 self.draft_parallel_config)
             # Validate and set draft token acceptance related settings.
 

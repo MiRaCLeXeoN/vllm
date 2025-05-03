@@ -16,7 +16,7 @@ from vllm.config import (CompilationLevel, VllmConfig,
                          get_layers_from_vllm_config)
 from vllm.distributed.kv_transfer import (get_kv_transfer_group,
                                           has_kv_transfer_group)
-from vllm.distributed.parallel_state import get_pp_group, graph_capture
+from vllm.distributed.parallel_state import get_pp_group, graph_capture, get_tp_group
 from vllm.forward_context import set_forward_context
 from vllm.logger import init_logger
 from vllm.model_executor.layers.rotary_embedding import MRotaryEmbedding
@@ -1523,8 +1523,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             else:
                 hidden_states = outputs
 
-            if self.use_spec_decode and \
-                self.speculative_config.method in ('eagle', 'eagle3'):
+            if (self.use_spec_decode 
+                and self.speculative_config.method in ('eagle', 'eagle3')
+                and hasattr(self, "drafter")):
                 assert isinstance(self.drafter, EagleProposer)
                 self.drafter.dummy_run(num_tokens)
 

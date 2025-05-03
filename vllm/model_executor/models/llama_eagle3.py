@@ -173,6 +173,9 @@ class Eagle3LlamaForCausalLM(LlamaForCausalLM):
         nn.Module.__init__(self)
         self.config = vllm_config. \
             speculative_config.draft_model_config.hf_config
+        if vllm_config.parallel_config.pipeline_parallel_size > 1:
+            # We force the start layer to be 0 in this case
+            start_layer_id = 0
         self.model = LlamaModel(vllm_config=vllm_config,
                                 start_layer_id=start_layer_id,
                                 prefix="model")
