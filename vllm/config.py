@@ -1780,6 +1780,17 @@ class ParallelConfig:
                     f"{current_platform.device_type.upper()} backend only "
                     "supports Ray for distributed inference.")
 
+        # NOTE(zt): Use mp-pp as a pp version of mp
+        # print(f"[ZT- envs.VLLM_USE_V1", envs.VLLM_USE_V1)
+        # print(f"[ZT- self.distributed_executor_backend", self.distributed_executor_backend)
+        # print(f"[ZT- self.pipeline_parallel_size", self.pipeline_parallel_size)
+        if envs.VLLM_USE_V1 and \
+                    (self.distributed_executor_backend is not None and self.distributed_executor_backend == "mp") and \
+                    self.pipeline_parallel_size > 1:
+            # print(f"[ZT- Use mp-pp as a pp version of mp")
+            self.distributed_executor_backend = "mp-pp"
+
+
         if self.distributed_executor_backend is None and self.world_size > 1:
             # We use multiprocessing by default if world_size fits on the
             # current node and we aren't in a ray placement group.
@@ -1827,7 +1838,7 @@ class ParallelConfig:
         from vllm.executor.executor_base import ExecutorBase
         from vllm.platforms import current_platform
         if self.distributed_executor_backend not in (
-                "ray", "mp", "uni",
+                "ray", "mp", "uni", "mp-pp",
                 "external_launcher", None) and not (isinstance(
                     self.distributed_executor_backend, type) and issubclass(
                         self.distributed_executor_backend, ExecutorBase)):
