@@ -312,7 +312,8 @@ class LlamaModel(nn.Module):
         self.org_vocab_size = config.vocab_size
         # We must borrow embeddings layer from target mode, since eagle 3 doesn't provide.
         tie_word_embeddings = get_pp_group().is_last_rank and (
-            config.tie_word_embeddings or vllm_config.speculative_config.method == "eagle3"
+            config.tie_word_embeddings or (vllm_config.speculative_config is not None and 
+                                           vllm_config.speculative_config.method == "eagle3")
         )
         if get_pp_group().is_first_rank or tie_word_embeddings:
             self.embed_tokens = VocabParallelEmbedding(
