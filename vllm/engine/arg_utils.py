@@ -1290,6 +1290,9 @@ class EngineArgs:
                 speculative_model = self.speculative_config.get("model")
                 if speculative_model in ("ngram", "[ngram]"):
                     is_ngram_enabled = True
+            # NOTE(zt): add ngram enabled
+            print("is_ngram_enabled: ", is_ngram_enabled)
+            print("is_eagle_enabled: ", is_eagle_enabled)
             if not (is_ngram_enabled or is_eagle_enabled):
                 # Other speculative decoding methods are not supported yet.
                 _raise_or_fallback(feature_name="Speculative Decoding",
@@ -1331,7 +1334,8 @@ class EngineArgs:
         # PP is supported on V1 with Ray distributed executor,
         # but off for MP distributed executor for now.
         if (self.pipeline_parallel_size > 1
-                and self.distributed_executor_backend != "ray"):
+                and self.distributed_executor_backend != "ray"
+                and self.distributed_executor_backend != "mp"):
             name = "Pipeline Parallelism without Ray distributed executor"
             _raise_or_fallback(feature_name=name, recommend_to_remove=False)
             return False

@@ -102,6 +102,34 @@ class RejectionSampler(nn.Module):
             bonus_token_ids,
             sampling_metadata,
         )
+        # NOTE(zt): numb_draft_token like: [0, 0, 0, 0, 0, 0, 5, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        # the length of each draft sequence is not the same
+        # the max_spec_len is as config 
+        # The output token ids is like: is rejected with placeholder token, and padding with placeholder token
+        # outputtoken ids
+        # Calculate acceptance rate using vectorized operations
+        PLACEHOLDER_TOKEN_ID_INT = int(PLACEHOLDER_TOKEN_ID)
+        
+        total_accepted = 0
+        total_draft = 0
+        seq_len = 0
+        
+        # Create mask for non-placeholder tokens
+        non_placeholder_mask = (output_token_ids != PLACEHOLDER_TOKEN_ID_INT)
+        for acc, num in zip(non_placeholder_mask, metadata.num_draft_tokens):
+            if num > 0:
+                total_accepted += acc.sum().item()
+                total_draft += num
+                seq_len += 1
+        acceptance_rate = total_accepted / total_draft if total_draft > 0 else 0.0
+        acceptance_length = total_accepted / seq_len
+        logger.info(f"[RejectionSampler] bonus_token_ids({bonus_token_ids.shape})")
+        logger.info(f"[RejectionSampler] draft_token_ids({metadata.draft_token_ids.shape})")
+        logger.info(f"[RejectionSampler] output_token_ids({output_token_ids.shape})")
+        logger.info(f"[RejectionSampler] metadata.max_spec_len: {metadata.max_spec_len}")
+        logger.info(f"[RejectionSampler] Overall acceptance rate: {acceptance_rate:.4f} = {total_accepted} / {total_draft}")
+        logger.info(f"[RejectionSampler] Overall acceptance length: {acceptance_length:.4f}")
+        
         return output_token_ids
 
     @staticmethod

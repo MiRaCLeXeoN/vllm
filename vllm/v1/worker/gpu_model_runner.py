@@ -1026,7 +1026,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if not scheduler_output.total_num_scheduled_tokens:
             # Return empty ModelRunnerOutput if there's no work to do.
             return EMPTY_MODEL_RUNNER_OUTPUT
-
+        # 1. Preapare input
         # Prepare the decoder inputs.
         attn_metadata, logits_indices, spec_decode_metadata = (
             self._prepare_inputs(scheduler_output))
@@ -1049,6 +1049,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             else:
                 num_input_tokens = num_scheduled_tokens
 
+        # 2. Execute mm encoding
         # _prepare_inputs may reorder the batch, so we must gather multi
         # modal outputs after that to ensure the correct order
         if self.is_multimodal_model:
@@ -1058,6 +1059,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         else:
             mm_embeds = []
 
+        # 3. Preapre other auxiliary 
         if self.is_multimodal_model:
             # NOTE(woosuk): To unify token ids and soft tokens (vision
             # embeddings), we always use embeddings (rather than token ids)
@@ -1084,9 +1086,14 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         else:
             positions = self.positions[:num_input_tokens]
 
+        # 4. Get intermediate from previous PP stage if necessary
         if get_pp_group().is_first_rank:
             intermediate_tensors = None
         else:
+            # TODO(ZP): If not the first rank, get the intermediate result from previous stage.
+            intermediate_tensors = IntermediateTensors(
+                get_pp_group().recv_tensor_dict(
+                    all_gather_group=get_tp_group()))
             assert intermediate_tensors is not None
             assert self.intermediate_tensors is not None
             for k, v in intermediate_tensors.items():
@@ -1116,7 +1123,12 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         if not get_pp_group().is_last_rank:
             # For mid-pipeline stages, return the hidden states.
-            return hidden_states
+            # print(f"[ZT-DEBUG][worker] Returning hidden_states from mid-pipeline stage, shape={getattr(hidden_states, 'shape', None)}")
+            assert isinstance(hidden_states, IntermediateTensors)
+            get_pp_group().send_tensor_dict(hidden_states.tensors, all_gather_group=get_tp_group())
+            # FIXME(ZP): This is not a ModelRunnerOutput for midle stages
+            # return hidden_states
+            return EMPTY_MODEL_RUNNER_OUTPUT
 
         sample_hidden_states = hidden_states[logits_indices]
         logits = self.model.compute_logits(sample_hidden_states, None)

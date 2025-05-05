@@ -1,0 +1,6 @@
+*.log
+
+# Ignore prompts
+prompts
+*.err
+*.out
